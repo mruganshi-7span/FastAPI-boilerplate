@@ -1,0 +1,37 @@
+MESSAGES: dict[str, str] = {
+    "common.not_found": "Resource not found",
+    "common.unauthenticated": "Unauthenticated",
+    "common.server_error": "Something went wrong. Please try again.",
+    "validation.invalid": "The given data was invalid.",
+    "email.already_taken": "The email has already been taken.",
+    "email.not_found": "We can't find a user with that email address.",
+    "auth.invalid_credentials": "These credentials do not match our records.",
+    "auth.account_deactivated": "This account has been deactivated.",
+    "auth.account_unavailable": "This account is no longer available.",
+    "auth.refresh_token_invalid": "The refresh token is invalid or has expired.",
+    "auth.reset_link_invalid": "This reset link is invalid or has expired.",
+    "auth.token_invalid": "Invalid or expired token.",
+    "auth.user_no_longer_exists": "User no longer exists.",
+    "auth.logged_out": "Logged out successfully.",
+    "auth.forgot_password_sent": "We have emailed your password reset link!",
+    "auth.password_reset_done": "Your password has been reset.",
+    "user.not_found": "User not found.",
+    "category.not_found": "Category not found.",
+    "media.invalid_key": "This key does not point to a valid upload location.",
+    "media.not_uploaded": "No uploaded file was found for this key.",
+    "mediable.unsupported_type": "Unsupported mediable type.",
+    "media.unsupported_tag": "Unsupported upload tag.",
+    "mediable.target_not_found": "No {type} was found with this id.",
+    "mediable.media_not_found": "This media does not exist.",
+    "mediable.not_found": "Mediable not found.",
+    "email.password_reset.subject": "Reset your password",
+    "email.password_reset.greeting": "Hi {name},",
+    "email.password_reset.intro": (
+        "We received a request to reset your password. This link expires in {expiry_minutes} minutes."
+    ),
+    "email.password_reset.button": "Reset your password",
+    "email.password_reset.fallback_intro": (
+        "If the button doesn't work, copy and paste this link into your browser:"
+    ),
+    "email.password_reset.ignore": "If you didn't request this, you can safely ignore this email.",
+}
