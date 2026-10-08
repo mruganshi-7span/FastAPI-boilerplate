@@ -65,13 +65,11 @@ class WidgetAdmin(DataclassModelMixin, ModelView, model=Widget):
 # backend/src/interfaces/admin/views/__init__.py
 from sqladmin import Admin
 
-from .tiers import TierAdmin
 from .users import UserAdmin
 from .widgets import WidgetAdmin   # new
 
 __all__ = [
     "UserAdmin",
-    "TierAdmin",
     "WidgetAdmin",                  # new
     "register_admin_views",
 ]
@@ -79,7 +77,6 @@ __all__ = [
 
 def register_admin_views(admin: Admin) -> None:
     admin.add_view(UserAdmin)
-    admin.add_view(TierAdmin)
     admin.add_view(WidgetAdmin)     # new
 ```
 
@@ -168,13 +165,7 @@ class WidgetAdmin(DataclassModelMixin, ModelView, model=Widget):
     column_list = [Widget.id, Widget.name, Widget.owner, Widget.created_at]
 ```
 
-The boilerplate's `UserAdmin` does this for tier:
-
-```python
-column_list = [User.id, User.name, User.username, User.email, User.is_superuser, User.tier]
-```
-
-`User.tier` is the relationship, not `User.tier_id`.
+The same rule applies to any model with a foreign key: list the relationship attribute, not the FK column.
 
 ### Form Rules Use FK Column Names
 
@@ -186,13 +177,13 @@ form_create_rules = [*WidgetCreate.model_fields.keys(), "owner_id"]
 
 ### `lazy="selectin"` Is Required
 
-SQLAdmin runs in async context, so relationships must use `lazy="selectin"` to avoid lazy-loading errors. Symptom of forgetting: `MissingGreenlet` or `greenlet_spawn has not been called`. `User.tier` in the boilerplate already uses this pattern.
+SQLAdmin runs in async context, so relationships must use `lazy="selectin"` to avoid lazy-loading errors. Symptom of forgetting: `MissingGreenlet` or `greenlet_spawn has not been called`. Define relationships on your models with `lazy="selectin"`.
 
-The exception is large one-to-many collections such as `Tier.users`, which uses `lazy="select"` so that loading a tier doesn't load every user in it. SQLAdmin still loads a relationship whenever a page uses it: it `selectinload`s the relationships in `column_list` and in the form columns (the details page reuses the edit-form query), and a relationship form field lists every row of the related table. So keep large collections out of the list, the form and the details page, as `TierAdmin` does:
+The exception is large one-to-many collections such as a hypothetical `Owner.widgets`, which should use `lazy="select"` so that loading an owner doesn't load every widget it has. SQLAdmin still loads a relationship whenever a page uses it: it `selectinload`s the relationships in `column_list` and in the form columns (the details page reuses the edit-form query), and a relationship form field lists every row of the related table. So keep large collections out of the list, the form and the details page, as in this example:
 
 ```python
-form_excluded_columns = [Tier.users]
-column_details_exclude_list = [Tier.users]
+form_excluded_columns = [Owner.widgets]
+column_details_exclude_list = [Owner.widgets]
 ```
 
 `column_details_exclude_list` replaces `column_details_list = "__all__"`; SQLAdmin doesn't accept both on the same view, and the details page shows every other column by default.
@@ -203,13 +194,12 @@ For nullable foreign keys, never set `default=None` on the relationship:
 
 ```python
 # WRONG — SQLAlchemy clears the FK during commit
-tier: Mapped["Tier | None"] = relationship("Tier", default=None, init=False)
+owner: Mapped["User | None"] = relationship("User", default=None, init=False)
 
 # CORRECT — relationship returns None naturally when FK is null
-tier: Mapped["Tier | None"] = relationship("Tier", init=False)
+owner: Mapped["User | None"] = relationship("User", init=False)
 ```
 
-The User model demonstrates the correct pattern.
 
 `DataclassModelMixin` automatically filters out relationship objects before constructing the dataclass — so the form data containing `owner_id=42` works, but a stray `owner=<User instance>` would be ignored.
 
@@ -258,20 +248,16 @@ async def after_model_change(
 
 ### `delete_model` — Custom Delete Behavior
 
-Override when delete needs to do more than `DELETE FROM`. The boilerplate's `TierAdmin` uses this to call the tier service's `permanent_delete`, which validates that no users or rate limits still reference the tier:
+Override when delete needs to do more than `DELETE FROM`. For example, to block deleting a widget that other records still reference:
 
 ```python
 async def delete_model(self, request: Request, pk: str) -> None:
-    from ....modules.tier.crud import crud_tiers
-
     async with local_session() as db:
-        tier_service = TierService()
+        widget = await crud_widgets.get(db=db, id=int(pk))
+        if not widget:
+            raise ValueError(f"Widget with ID {pk} not found")
 
-        tier = await crud_tiers.get(db=db, id=int(pk))
-        if not tier:
-            raise ValueError(f"Tier with ID {pk} not found")
-
-        await tier_service.permanent_delete(tier["name"], db)
+        await widget_service.permanent_delete(widget["name"], db)
 ```
 
 ## Bulk Actions
@@ -320,9 +306,8 @@ SQLAdmin uses [Font Awesome](https://fontawesome.com/icons) icons. Set them with
 
 ```python
 icon = "fa-solid fa-user"          # users
-icon = "fa-solid fa-layer-group"   # tiers / categories
-icon = "fa-solid fa-key"           # api keys
-icon = "fa-solid fa-gauge-high"    # rate limits
+icon = "fa-solid fa-layer-group"   # categories
+icon = "fa-solid fa-key"           # credentials
 icon = "fa-solid fa-cube"          # generic
 ```
 
@@ -352,12 +337,11 @@ Most of the time you actually want a hard delete here (the admin is editing the 
 
 ## Real Examples in the Codebase
 
-The boilerplate ships two admin views — read them as reference implementations:
+The boilerplate ships one admin view. Read it as a reference implementation:
 
 | File | What it shows |
 |------|---------------|
 | `backend/src/interfaces/admin/views/users.py` | `on_model_change` for password hashing, OAuth-provider select field, relationship in `column_list`, custom `column_labels` |
-| `backend/src/interfaces/admin/views/tiers.py` | `delete_model` override that calls a service method, schema-driven form rules |
 
 ## Key Files
 

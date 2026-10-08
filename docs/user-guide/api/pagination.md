@@ -89,14 +89,14 @@ async def list_users(
     page: int = 1,
     items_per_page: int = 10,
     search: str | None = None,
-    tier_id: int | None = None,
+    is_superuser: bool | None = None,
 ) -> dict[str, Any]:
     result = await user_service.get_paginated(
         skip=compute_offset(page, items_per_page),
         limit=items_per_page,
         db=db,
         search=search,
-        tier_id=tier_id,
+        is_superuser=is_superuser,
     )
     return paginated_response(crud_data=result, page=page, items_per_page=items_per_page)
 ```
@@ -110,11 +110,11 @@ async def get_paginated(
     skip: int = 0,
     limit: int = 100,
     search: str | None = None,
-    tier_id: int | None = None,
+    is_superuser: bool | None = None,
 ) -> GetMultiResponseDict:
     filters: dict[str, Any] = {"is_deleted": False}
-    if tier_id is not None:
-        filters["tier_id"] = tier_id
+    if is_superuser is not None:
+        filters["is_superuser"] = is_superuser
     if search:
         filters["username__icontains"] = search
 
@@ -148,7 +148,7 @@ result = await crud_users.get_multi(
 For multiple sort keys, pass lists:
 
 ```python
-sort_columns=["tier_id", "created_at"],
+sort_columns=["is_superuser", "created_at"],
 sort_orders=["asc", "desc"],
 ```
 
@@ -190,7 +190,7 @@ async def list_users(
     ...
 ```
 
-The boilerplate uses `ge=1, le=100` for the user list endpoint and `ge=1, le=1000` for API-key usage history (`modules/api_keys/routes.py`). Pick a cap that matches the row size of the model you're paginating.
+The boilerplate uses `ge=1, le=100` for the user list endpoint. Pick a cap that matches the row size of the model you're paginating.
 
 ## Real Endpoint: List Users
 
@@ -227,44 +227,17 @@ async def get_users(
 
 The endpoint is gated on the `user.read` permission, which a role grants — not on the superuser flag. Superusers always pass. See [Permissions](../authentication/permissions.md#role-based-permissions).
 
-## Real Endpoint: API Key Usage History
-
-From `modules/api_keys/routes.py` — same pattern, different limit cap:
-
-```python
-@router.get(
-    "/{key_id}/usage",
-    response_model=PaginatedListResponse[KeyUsageRead],
-)
-async def get_key_usage(
-    current_user: CurrentUserDep,
-    api_key_service: APIKeyServiceDep,
-    db: AsyncSessionDep,
-    key_id: int = Path(..., description="API key ID"),
-    page: int = Query(1, ge=1, description="Page number"),
-    items_per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
-) -> dict[str, Any]:
-    result = await api_key_service.get_key_usage(
-        key_id=key_id,
-        user_id=current_user["id"] if isinstance(current_user, dict) else current_user.id,
-        limit=items_per_page,
-        offset=compute_offset(page, items_per_page),
-        db=db,
-    )
-    return paginated_response(crud_data=result, page=page, items_per_page=items_per_page)
-```
-
 ## Simple List Without Pagination
 
-If you genuinely don't need pagination (e.g. an admin endpoint that returns a tiny enumerable like all tiers), call `get_multi` once and return the `data` list directly:
+If you genuinely don't need pagination (e.g. an admin endpoint that returns a tiny enumerable like all roles), call `get_multi` once and return the `data` list directly:
 
 ```python
-@router.get("/all", response_model=list[TierRead])
-async def list_all_tiers(
+@router.get("/all", response_model=list[WidgetRead])
+async def list_all_widgets(
     db: Annotated[AsyncSession, Depends(async_session)],
-    tier_service: Annotated[TierService, Depends(get_tier_service)],
+    widget_service: Annotated[WidgetService, Depends(get_widget_service)],
 ) -> list[dict[str, Any]]:
-    result = await tier_service.get_all(db=db, skip=0, limit=1000)
+    result = await widget_service.get_all(db=db, skip=0, limit=1000)
     return result["data"]
 ```
 
@@ -299,7 +272,7 @@ def upgrade() -> None:
     op.create_index("ix_user_created_at", "user", ["created_at"])
 ```
 
-The User model already indexes `username`, `email`, `tier_id`, `google_id`, and `github_id` for this reason.
+The User model already indexes `username`, `email`, `google_id`, and `github_id` for this reason.
 
 ### Beware of large offsets
 

@@ -162,7 +162,7 @@ The split keeps:
 - Business logic (validation, orchestration) in `service.py`
 - Database I/O in `crud.py`
 
-You can mock any layer in tests; you can change one without breaking the others.
+You can change one layer without breaking the others.
 
 ## Directory Structure
 
@@ -177,26 +177,20 @@ backend/src/
 │   └── auth/
 │       └── routes.py              # /api/v1/auth/* (login, OAuth, check-auth)
 └── modules/
-    ├── user/routes.py             # /api/v1/users/*
-    ├── tier/routes.py             # /api/v1/tiers/*
-    ├── rate_limit/routes.py       # /api/v1/rate-limits/*
-    └── api_keys/routes.py         # /api/v1/api-keys/*
+    └── user/routes.py             # /api/v1/users/*
 ```
 
 Auth lives in `infrastructure/auth/routes.py` instead of in a feature module because authentication is structural — every other feature depends on it.
 
 ## Mounted Endpoints
 
-What ships out of the box (40 total routes):
+What ships out of the box:
 
 | Prefix | Source | Notes |
 |--------|--------|-------|
 | `POST/GET/PATCH/DELETE /api/v1/users/*` | `modules/user/routes.py` | Open create; reads/updates need a session, and a lookup by username returns no email. Listing every user needs the `user.read` permission |
-| `GET /api/v1/tiers/*` | `modules/tier/routes.py` | Authenticated list + lookup by name |
-| `GET/PATCH/DELETE /api/v1/rate-limits/*` | `modules/rate_limit/routes.py` | Superuser only |
 | `POST /api/v1/auth/login`, `logout`, `logout-all`, `refresh-csrf`, `check-auth` | `infrastructure/auth/routes.py` | Session auth |
 | `GET /api/v1/auth/oauth/{provider}`, `oauth/callback/{provider}` | crudauth router mounted in `infrastructure/auth/routes.py` | Google OAuth (configured in `infrastructure/auth/setup.py`) |
-| `POST/GET/PATCH/DELETE /api/v1/api-keys/*` | `modules/api_keys/routes.py` | Authenticated key management |
 | `GET /admin/*` | `interfaces/admin/initialize.py` | SQLAdmin UI |
 | `GET /docs`, `/redoc`, `/openapi.json` | App factory (protected when gated) | Disabled in production unless `ENABLE_DOCS_IN_PRODUCTION=true`; when enabled in production or running in staging, requires superuser authentication |
 | `GET /health` | App factory | Liveness check |

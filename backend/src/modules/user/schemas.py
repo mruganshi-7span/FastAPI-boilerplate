@@ -33,7 +33,6 @@ class User(TimestampSchema, UserBase, PersistentDeletion):
             description="URL of the user's profile image",
         ),
     ]
-    tier_id: int | None = None
 
     google_id: str | None = None
     github_id: str | None = None
@@ -55,7 +54,6 @@ class UserProfileRead(BaseModel):
     name: Annotated[str, Field(examples=["User Userson"])]
     username: Annotated[str, Field(examples=["userson"])]
     profile_image_url: str
-    tier_id: int | None = None
 
 
 class UserRead(BaseModel):
@@ -70,7 +68,6 @@ class UserRead(BaseModel):
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     profile_image_url: str
     is_deleted: bool = False
-    tier_id: int | None
     is_superuser: bool = False
     email_verified: bool = False
     oauth_provider: str | None = None
@@ -152,12 +149,6 @@ class UserUpdateInternal(UserAdminUpdate):
     updated_at: datetime
 
 
-class UserTierUpdate(BaseModel):
-    """Schema for updating a user's tier."""
-
-    tier_id: int
-
-
 class UserDelete(BaseModel):
     """Schema for soft-deleting a user."""
 
@@ -180,7 +171,6 @@ class UserAnonymize(BaseModel):
     username: str
     hashed_password: str | None = None
     profile_image_url: str | None = None
-    tier_id: int | None = None
     is_superuser: bool = False
     google_id: str | None = None
     github_id: str | None = None

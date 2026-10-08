@@ -1,29 +1,27 @@
 # Permissions and Authorization
 
-Authentication answers "who are you?". Authorization answers "what can you do?". This page covers the boilerplate's authorization patterns: role permissions, superuser flags, resource ownership, tier-based limits, and API key permissions.
+Authentication answers "who are you?". Authorization answers "what can you do?". This page covers the boilerplate's authorization patterns: role permissions, superuser flags, and resource ownership.
 
 ## Authorization Patterns
 
-The boilerplate ships five overlapping mechanisms. Pick the one(s) that fit your use case.
+The boilerplate ships three overlapping mechanisms. Pick the one(s) that fit your use case.
 
 | Pattern | Where it lives | When to use |
 |---------|----------------|-------------|
 | **Role permissions** | `Role` + `RolePermission` + `UserRole` models, `require_permissions` | Granting a named capability to a group of users |
 | **Superuser flag** | `User.is_superuser` boolean | Admin-only operations |
 | **Resource ownership** | Service-layer permission checks | "Users can only edit their own X" |
-| **Tier-based limits** | `Tier` model + `RateLimit` rules | Subscription gating, rate limits |
-| **API key permissions** | `KeyPermission` model (resource + action) | Programmatic access control |
 
 These compose. A typical request goes through:
 
-1. **Authentication** — session cookie (or API key) identifies *who*
+1. **Authentication** — session cookie identifies *who*
 2. **Coarse access** — role permissions, or the superuser flag, for privileged endpoints
-3. **Fine-grained access** — service-layer ownership / tier checks
-4. **Rate limiting** — tier-based per-route limits (separate concern)
+3. **Fine-grained access** — service-layer ownership checks
+4. **Rate limiting** — one global limit from settings, applied to every route (separate concern)
 
 ## Role-Based Permissions
 
-A permission is a flat `resource.action` string — `user.read`, `tier.update`. Permissions are never granted to a user directly: a `Role` carries a set of them, and a user is assigned roles.
+A permission is a flat `resource.action` string — `user.read`, `role.update`. Permissions are never granted to a user directly: a `Role` carries a set of them, and a user is assigned roles.
 
 ```text
 User ──< UserRole >── Role ──< RolePermission
@@ -137,7 +135,7 @@ await db.commit()
 ```
 
 !!! info "Not shipped yet"
-    Role and permission CRUD endpoints, admin-panel views for roles, and narrowing an API key to a subset of its owner's permissions are follow-up work. This change ships the models, the registry, and the route guards.
+    Role and permission CRUD endpoints and admin-panel views for roles are follow-up work. This change ships the models, the registry, and the route guards.
 
 ## Superuser Authorization
 
@@ -169,8 +167,6 @@ The leading `_:` is the codebase convention for dependency-only parameters whose
 ### When to Use the Superuser Flag
 
 - User management (create/delete other users)
-- Tier assignment (`PATCH /api/v1/users/{username}/tier`)
-- Rate limit configuration (`PATCH /api/v1/rate-limits/{name}`)
 - GDPR data anonymization
 - System configuration changes
 
@@ -270,164 +266,9 @@ class WidgetService:
 
 Three rules to follow:
 
-1. **Service raises domain exceptions, not HTTP exceptions.** Lets the same logic be reused outside routes (admin scripts, tests, taskiq jobs).
+1. **Service raises domain exceptions, not HTTP exceptions.** Lets the same logic be reused outside routes (admin scripts, taskiq jobs).
 2. **Superuser bypass is explicit.** `not current_user["is_superuser"]` makes the rule readable.
 3. **Order: existence check first, then ownership.** A 404 is preferred to a 403 for resources the user shouldn't even know about — see the [Hide Resource Existence](../api/exceptions.md#hide-resource-existence) note.
-
-## Tier-Based Authorization
-
-Every user has a `tier_id` foreign key to the `Tier` model. The boilerplate ships **bare tiers** — just `name` and `description`, no built-in feature mapping or pricing logic. You decide what tiers mean.
-
-### Reading the User's Tier
-
-`User.tier` is loaded automatically via `lazy="selectin"`, so a fetched user record includes their tier:
-
-```python
-@router.get("/me", response_model=UserRead)
-async def me(
-    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
-) -> dict[str, Any]:
-    # current_user["tier"] is the joined Tier dict (or None)
-    return current_user
-```
-
-### Gating a Feature on Tier Name
-
-For a simple feature gate, check the tier name directly in the service:
-
-```python
-async def export_data(self, current_user: dict[str, Any], db: AsyncSession) -> bytes:
-    tier = current_user.get("tier") or {}
-    if tier.get("name") not in {"pro", "enterprise"}:
-        raise PermissionDeniedError("Data export requires the Pro or Enterprise tier")
-    # ...generate export...
-```
-
-This works for "binary" features. For more complex models (per-feature quotas, multiple add-ons), consider building an entitlements system on top — that's outside the scope of the boilerplate.
-
-### Tier-Based Rate Limits
-
-Rate limiting *is* built-in: each `RateLimit` row binds a tier to a path with a `limit` and `period`. crudauth's limiter, wired in `infrastructure/auth/setup.py`, enforces these per request. See [Rate Limiting](../rate-limiting/index.md).
-
-To configure rate limits for a tier:
-
-```bash
-# Create a rate limit (admin only)
-curl -X POST http://localhost:8000/api/v1/rate-limits/ \
-  -b superuser_cookies.txt \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: <token>" \
-  -d '{
-    "tier_id": 2,
-    "name": "pro_users",
-    "path": "/api/v1/widgets/",
-    "limit": 1000,
-    "period": 60
-  }'
-```
-
-## API Key Permissions
-
-For programmatic access, API keys carry their own per-key permission model. Each key can have multiple `KeyPermission` rows, where a permission is `(resource, action, allow/deny, optional conditions)`.
-
-### Permission Model
-
-```python
-# modules/api_keys/models.py
-class KeyPermission(Base, TimestampMixin):
-    __tablename__ = "key_permissions"
-
-    api_key_id: Mapped[int] = mapped_column(ForeignKey("api_keys.id", ondelete="CASCADE"))
-    resource: Mapped[KeyPermissionResource] = mapped_column(index=True)
-    action: Mapped[KeyPermissionAction] = mapped_column(index=True)
-    conditions: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
-    is_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
-```
-
-### Resources and Actions
-
-The `KeyPermissionResource` and `KeyPermissionAction` enums in `modules/api_keys/enums.py` define the shape of a permission row:
-
-```python
-class KeyPermissionResource(StrEnum):
-    USER_PROFILE = "user_profile"
-    ANALYTICS = "analytics"
-    ADMIN = "admin"
-    BILLING = "billing"
-    API_KEYS = "api_keys"
-    WILDCARD = "*"
-    # ... plus a few legacy values inherited from the upstream template
-
-
-class KeyPermissionAction(StrEnum):
-    READ = "read"
-    WRITE = "write"
-    DELETE = "delete"
-    CREATE = "create"
-    UPDATE = "update"
-    LIST = "list"
-    ADMIN = "admin"
-    WILDCARD = "*"
-```
-
-`*` is a wildcard — `(resource="*", action="*")` is full access; `(resource="user_profile", action="*")` is full access to the user_profile resource.
-
-!!! info "Customize the enums"
-    The enum values are starting points. Edit `modules/api_keys/enums.py` to match the resources and actions your API actually exposes. The default values include some leftovers from the upstream template (e.g. `conversations`, `credits`) — feel free to drop them.
-
-### Granting Permissions on a New Key
-
-Permissions are passed at creation time:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/api-keys/ \
-  -b cookies.txt \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: <token>" \
-  -d '{
-    "name": "Read-only analytics integration",
-    "permissions": {
-      "analytics": ["read", "list"],
-      "user_profile": ["read"]
-    },
-    "usage_limits": {}
-  }'
-```
-
-The service translates the dict into `KeyPermission` rows.
-
-### Checking Permissions in a Route
-
-When a request comes in via API key, you can guard endpoints by required `(resource, action)`. The boilerplate doesn't ship a built-in `require_permission(...)` decorator — the API key flow is left flexible so you can wire it however suits your app:
-
-```python
-async def require_key_permission(
-    resource: KeyPermissionResource,
-    action: KeyPermissionAction,
-    db: AsyncSession,
-    api_key: dict[str, Any],
-) -> None:
-    has_permission = await crud_key_permissions.exists(
-        db=db,
-        api_key_id=api_key["id"],
-        resource=resource,
-        action=action,
-        is_allowed=True,
-    )
-    # also check wildcards
-    if not has_permission:
-        has_wildcard = await crud_key_permissions.exists(
-            db=db,
-            api_key_id=api_key["id"],
-            resource=KeyPermissionResource.WILDCARD,
-            action=KeyPermissionAction.WILDCARD,
-            is_allowed=True,
-        )
-        if not has_wildcard:
-            raise PermissionDeniedError(f"API key lacks {resource}:{action}")
-```
-
-How API keys are authenticated (parsing the header, looking up the row, checking the status) is up to you — `KeyStatus` defines the lifecycle (`ACTIVE`, `INACTIVE`, `SUSPENDED`, `EXPIRED`, `REVOKED`).
 
 ## Combining Patterns
 
@@ -445,7 +286,6 @@ async def delete_widget(
         # Service handles:
         #   2. Existence check
         #   3. Ownership check (superuser bypass)
-        #   4. Tier feature gate (e.g. "delete requires Pro tier")
         await widget_service.delete(widget_id, current_user, db)
     except Exception as e:
         http_exc = handle_exception(e)
@@ -454,37 +294,7 @@ async def delete_widget(
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 ```
 
-The route stays trivial. Authorization rules accumulate in the service, where they're testable and reusable.
-
-## Testing Authorization
-
-Test the **service**, not the route, for permission rules — they're easier to set up and faster to run.
-
-```python
-import pytest
-from src.modules.user.service import UserService
-from src.modules.common.exceptions import PermissionDeniedError
-
-
-@pytest.mark.asyncio
-async def test_normal_user_cannot_update_other_users():
-    service = UserService()
-    current_user = {"username": "alice", "is_superuser": False}
-
-    with pytest.raises(PermissionDeniedError):
-        await service.verify_user_permission(current_user, "bob", "update profile")
-
-
-@pytest.mark.asyncio
-async def test_superuser_can_update_other_users():
-    service = UserService()
-    current_user = {"username": "alice", "is_superuser": True}
-
-    # Should not raise
-    await service.verify_user_permission(current_user, "bob", "update profile")
-```
-
-For end-to-end coverage, integration tests against `TestClient` exercise the full session-cookie + permission-check stack. See [Testing](../testing.md).
+The route stays trivial. Authorization rules accumulate in the service, where they're reusable.
 
 ## Best Practices
 
@@ -492,7 +302,7 @@ For end-to-end coverage, integration tests against `TestClient` exercise the ful
 
 Routes do dependency injection and HTTP shaping; services hold rules. If a `PermissionDeniedError` raise feels out of place in your service, that's a sign your service is doing more than business logic.
 
-### Order checks: authn → existence → ownership → quota
+### Order checks: authn → existence → ownership
 
 ```python
 # 1. Authenticated? — done by the dependency
@@ -502,16 +312,13 @@ if widget is None:
 # 3. User owns it?
 if widget["owner_id"] != current_user["id"] and not current_user["is_superuser"]:
     raise PermissionDeniedError(...)
-# 4. Quota / tier OK?
-if not within_tier_limits(...):
-    raise PermissionDeniedError(...)
 ```
 
 This order prevents leaking existence (404 before 403) and keeps the cheap checks first.
 
 ### Don't reinvent rate limits
 
-The built-in tier rate-limiter middleware is enforced before your route runs. Don't roll your own per-feature counters unless you need something the middleware can't express. See [Rate Limiting](../rate-limiting/index.md).
+The built-in global rate limiter is enforced by a router-level dependency on the `/api/v1` router. Do not roll your own per-feature counters unless you need a different budget; for that, attach `auth.rate_limit(...)` to the route. See [Rate Limiting](../rate-limiting/index.md).
 
 ### Audit superuser actions
 
@@ -520,6 +327,6 @@ Superuser endpoints touch sensitive data. Log the actor + action server-side —
 ## Next Steps
 
 - **[Sessions](sessions.md)** — How session-based authentication works
-- **[Rate Limiting](../rate-limiting/index.md)** — Tier-based rate limit middleware
+- **[Rate Limiting](../rate-limiting/index.md)** — The global rate limit and how to tune or disable it
 - **[Exceptions](../api/exceptions.md)** — How `PermissionDeniedError` becomes 403
 - **[Production](../production.md)** — Hardening checklist

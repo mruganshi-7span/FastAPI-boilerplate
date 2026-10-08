@@ -2,8 +2,6 @@
 
 The boilerplate uses **server-side sessions with HTTP-only cookies** — not JWT. Auth is provided by the [`crudauth`](https://pypi.org/project/crudauth/) library: sessions are stored in Redis (or memory, configurable), CSRF-protected, and lockout-throttled at the login endpoint. The composition root is the `auth = CRUDAuth(...)` singleton in `infrastructure/auth/setup.py` (see [Sessions → Auth Architecture](sessions.md#auth-architecture)).
 
-For machine-to-machine clients, the boilerplate ships **API keys** with per-key permissions and usage tracking.
-
 ## What You'll Learn
 
 - **[Sessions](sessions.md)** - Server-side sessions, cookies, and CSRF protection
@@ -20,7 +18,7 @@ The original boilerplate used JWT with refresh tokens and a token blacklist. We 
 - **Storage is server-side.** No risk of accidentally leaking long-lived tokens via XSS to client storage.
 - **Sessions match how most users actually want to think about authentication.** "Is this person logged in?" is a database question, not a cryptographic one.
 
-If you specifically need stateless tokens (e.g. for inter-service auth where you can't share a session store), use **API keys** — they're stateless from the client's perspective and authenticated server-side.
+If you specifically need stateless tokens (e.g. for inter-service auth where you can't share a session store), enable the bearer (JWT) transport described below.
 
 ### Need JWT for mobile or native apps?
 
@@ -106,21 +104,6 @@ Only Google is wired when its credentials are configured. The router is supplied
 browser-bound single-use state, and safe same-origin redirects. Add another provider in
 `infrastructure/auth/setup.py` using `OAuthCredentials`.
 
-### 3. API Keys (Machine-to-Machine)
-
-For server-to-server clients, programs, scripts, integrations:
-
-```bash
-# Create a key (requires an authenticated session)
-curl -X POST "http://localhost:8000/api/v1/api-keys/" \
-  -H "Content-Type: application/json" \
-  -b cookies.txt \
-  -d '{"name": "Integration Key", "permissions": {}, "usage_limits": {}}'
-# → { "key": "shown ONCE — store securely", ... }
-```
-
-The full key is returned only on creation. Each key has its own permissions, usage limits, and audit trail (`KeyUsage` rows).
-
 ## Key Features
 
 ### Server-Side Sessions
@@ -144,7 +127,6 @@ The full key is returned only on creation. Each key has its own permissions, usa
 
 - **Roles** carrying `resource.action` permissions (`modules/role/`) — `require_permissions("user.read")` gates a route, superusers bypass it
 - **Superuser flag** on `User.is_superuser` for admin-only routes
-- **Tier-based** access via the `Tier` model — every user belongs to a tier, and rate limits are configured per tier path
 - **Resource ownership** checks live in services (the route doesn't decide who owns what)
 
 ### Login Lockout
@@ -337,37 +319,6 @@ class AuthClient {
 ```
 
 The `credentials: 'include'` flag is what makes the browser actually send cookies cross-origin. Pair this with proper CORS settings on the server side (`CORS_ALLOW_CREDENTIALS=true`).
-
-### Custom Tier-Based Dependency
-
-You can combine the built-in deps to enforce tier checks:
-
-```python
-from typing import Annotated, Any
-from fastapi import Depends, HTTPException
-
-from ...infrastructure.auth.dependencies import get_current_user
-
-
-async def require_tier(
-    tier_name: str,
-    user: Annotated[dict[str, Any], Depends(get_current_user)],
-) -> dict[str, Any]:
-    user_tier = user.get("tier") or {}
-    if user_tier.get("name") != tier_name:
-        raise HTTPException(status_code=403, detail=f"Requires {tier_name} tier")
-    return user
-
-
-# Usage with a Pro tier
-@router.get("/premium")
-async def premium_feature(
-    user: Annotated[dict[str, Any], Depends(lambda u=Depends(get_current_user): require_tier("pro", u))],
-):
-    return {"data": "premium content"}
-```
-
-In practice, prefer raising `PermissionDeniedError` from inside a service method so the mapping layer translates it consistently (see [Exceptions](../api/exceptions.md)).
 
 ## Getting Started
 

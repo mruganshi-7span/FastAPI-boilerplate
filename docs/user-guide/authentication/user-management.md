@@ -16,9 +16,6 @@ All under `/api/v1/users/` (defined in `modules/user/routes.py`):
 | `PATCH` | `/api/v1/users/{username}` | Update profile (own or admin) | Session |
 | `DELETE` | `/api/v1/users/{username}` | Soft-delete a user (own or admin) | Session |
 | `DELETE` | `/api/v1/users/db/{username}` | GDPR anonymize (admin) | Superuser |
-| `GET` | `/api/v1/users/{username}/rate-limits` | User's rate limits via tier | Session |
-| `GET` | `/api/v1/users/{username}/tier` | User's tier details | Session |
-| `PATCH` | `/api/v1/users/{username}/tier` | Change a user's tier | Superuser |
 
 Plus the auth endpoints under `/api/v1/auth/` documented in [Sessions](sessions.md).
 
@@ -138,7 +135,7 @@ Returns 404 if not found or soft-deleted. The admin-only `/active-and-inactive/{
 
 ### Update Profile
 
-Users can always update their own profile. Updating someone else's needs superuser, or the `user.update` permission. Tier updates are gated on a separate endpoint (see [Permissions](permissions.md)).
+Users can always update their own profile. Updating someone else's needs superuser, or the `user.update` permission. See [Permissions](permissions.md) for the full rules.
 
 ```bash
 curl -X PATCH http://localhost:8000/api/v1/users/johndoe \
@@ -213,7 +210,7 @@ Permission rules:
 
 ### Hard Delete (database)
 
-There's no public hard-delete endpoint by design — deleting rows from `user` would orphan all related data (sessions, API keys, etc.). If you really need it, use FastCRUD's `crud_users.db_delete(...)` from a script or admin task with full understanding of the foreign-key impact.
+There's no public hard-delete endpoint by design — deleting rows from `user` would orphan all related data (sessions, etc.). If you really need it, use FastCRUD's `crud_users.db_delete(...)` from a script or admin task with full understanding of the foreign-key impact.
 
 ### GDPR Anonymization
 
@@ -234,7 +231,6 @@ async def anonymize_user(self, user_id: int, db: AsyncSession) -> None:
         username=f"del_{user_id}_{timestamp % 10000}",
         hashed_password="DELETED_INVALID_HASH",
         profile_image_url="https://deleted.com/deleted.jpg",
-        tier_id=None,
         is_superuser=False,
         google_id=None,
         github_id=None,
@@ -277,36 +273,6 @@ Response shape (via `paginated_response`):
 
 See [Pagination](../api/pagination.md) for the full pattern.
 
-### View a User's Tier
-
-```bash
-curl http://localhost:8000/api/v1/users/johndoe/tier -b cookies.txt
-```
-
-Returns the user record joined with their tier. Permission: own profile or superuser.
-
-### Change a User's Tier
-
-`PATCH /api/v1/users/{username}/tier` — superuser only.
-
-```bash
-curl -X PATCH http://localhost:8000/api/v1/users/johndoe/tier \
-  -b superuser_cookies.txt \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: <token>" \
-  -d '{"tier_id": 2}'
-```
-
-The service verifies the tier exists before assigning it.
-
-### View a User's Rate Limits
-
-```bash
-curl http://localhost:8000/api/v1/users/johndoe/rate-limits -b cookies.txt
-```
-
-Returns the rate limits configured for the user's tier. Permission: own profile or superuser.
-
 ## User Model Reference
 
 The actual model lives in `modules/user/models.py`. Trimmed:
@@ -325,13 +291,6 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     hashed_password: Mapped[str] = mapped_column(String(100))
     profile_image_url: Mapped[str] = mapped_column(
         String, default="https://profileimageurl.com",
-    )
-
-    tier_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("tiers.id"), index=True, default=None,
-    )
-    tier: Mapped["Tier | None"] = relationship(
-        "Tier", back_populates="users", lazy="selectin", init=False,
     )
 
     is_superuser: Mapped[bool] = mapped_column(default=False)
@@ -382,7 +341,7 @@ total_active = await crud_users.count(db=db, is_deleted=False)
 admin_count = await crud_users.count(db=db, is_superuser=True)
 
 # Filtered queries
-result = await crud_users.get_multi(db=db, tier_id=1, is_deleted=False, limit=20)
+result = await crud_users.get_multi(db=db, is_superuser=False, is_deleted=False, limit=20)
 
 # Search by username substring
 result = await crud_users.get_multi(db=db, username__icontains="ad")

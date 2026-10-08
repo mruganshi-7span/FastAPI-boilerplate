@@ -3,7 +3,7 @@
 Routes depend on these; they wrap the crudauth ``auth`` singleton so the session
 engine (validation, CSRF, lockout) lives in crudauth while handlers keep their
 existing dict/Principal contracts. ``get_current_user`` returns the same user
-dict the rest of the app (and the API-key module) already consumes, so the public
+dict the rest of the app already consumes, so the public
 contract is unchanged.
 """
 

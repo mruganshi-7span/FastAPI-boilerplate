@@ -9,10 +9,7 @@ Models live in **`backend/src/modules/<feature>/models.py`** — colocated with 
 ```text
 backend/src/modules/
 ├── user/models.py          # User
-├── role/models.py          # Role, RolePermission, UserRole
-├── tier/models.py          # Tier
-├── rate_limit/models.py    # RateLimit
-└── api_keys/models.py      # APIKey, KeyUsage, KeyPermission
+└── role/models.py          # Role, RolePermission, UserRole
 ```
 
 The shared base class and reusable mixins live in `backend/src/infrastructure/database/`:
@@ -64,11 +61,8 @@ class MyModel(Base, TimestampMixin, SoftDeleteMixin):
 Each module's models are imported in `backend/src/modules/__init__.py`:
 
 ```python
-from .api_keys.models import APIKey, KeyPermission, KeyUsage
-from .rate_limit.models import RateLimit
 from .role.models import Role, RolePermission, UserRole
 from .role.permission_registry import discover_permissions
-from .tier.models import Tier
 from .user.models import User
 
 discover_permissions()
@@ -78,29 +72,27 @@ When you add a new module, **add its models here** so Alembic's `--autogenerate`
 
 ## Relationships
 
-The boilerplate uses SQLAlchemy `relationship()` where it makes sense. Relationships that are routinely read (like `User.tier`) use `lazy="selectin"` to avoid N+1 problems by fetching related rows in a single follow-up query. Large collections that are rarely read (like `Tier.users`) use `lazy="select"`, so loading a tier doesn't pull in every user assigned to it.
+The boilerplate uses SQLAlchemy `relationship()` where it makes sense. Collections that are rarely read (like `User.user_roles`) use `lazy="select"`, so loading a user doesn't pull in every role assignment. Switch to `lazy="selectin"` for relationships that are routinely read, to avoid N+1 problems by fetching related rows in a single follow-up query.
 
-For example, `User.tier` and `Tier.users` are both wired up:
+For example, `User.user_roles` and `UserRole.user` are both wired up:
 
 ```python
 # modules/user/models.py
 class User(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "user"
     ...
-    tier_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("tiers.id"), index=True, default=None,
-    )
-    tier: Mapped["Tier | None"] = relationship(
-        "Tier", back_populates="users", lazy="selectin", init=False,
+    user_roles: Mapped[list["UserRole"]] = relationship(
+        "UserRole", back_populates="user", lazy="select",
+        cascade="all, delete-orphan", passive_deletes=True,
+        default_factory=list, init=False,
     )
 
-# modules/tier/models.py
-class Tier(Base, TimestampMixin, SoftDeleteMixin):
-    __tablename__ = "tiers"
+# modules/role/models.py
+class UserRole(Base):
+    __tablename__ = "user_roles"
     ...
-    users: Mapped[list["User"]] = relationship(
-        "User", back_populates="tier", lazy="select",
-        default_factory=list, init=False,
+    user: Mapped["User"] = relationship(
+        "User", back_populates="user_roles", lazy="select", init=False,
     )
 ```
 
@@ -112,25 +104,12 @@ Both sides of a relationship import each other's model class. Use `TYPE_CHECKING
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..tier.models import Tier
+    from ..role.models import UserRole
 
 
 class User(Base, ...):
-    tier: Mapped["Tier | None"] = relationship("Tier", back_populates="users", ...)
+    user_roles: Mapped[list["UserRole"]] = relationship("UserRole", back_populates="user", ...)
 ```
-
-### When to Skip Relationships
-
-If a foreign key only points "outward" (no need to traverse from the other side), just keep the FK column and skip the relationship:
-
-```python
-class APIKey(Base, ...):
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
-    # No User relationship — the API key knows its user via user_id;
-    # users don't need a list of all their keys at the ORM level.
-```
-
-You can always join via FastCRUD when you need the related data.
 
 ## The User Model
 
@@ -139,14 +118,14 @@ You can always join via FastCRUD when you need the related data.
 ```python
 from datetime import datetime
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ...infrastructure.database.models import SoftDeleteMixin, TimestampMixin
 from ...infrastructure.database.session import Base
 
 if TYPE_CHECKING:
-    from ..tier.models import Tier
+    from ..role.models import UserRole
 
 
 class User(Base, TimestampMixin, SoftDeleteMixin):
@@ -166,14 +145,6 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         String, default="https://profileimageurl.com",
     )
 
-    # Tier (foreign key + relationship)
-    tier_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("tiers.id"), index=True, default=None,
-    )
-    tier: Mapped["Tier | None"] = relationship(
-        "Tier", back_populates="users", lazy="selectin", init=False,
-    )
-
     is_superuser: Mapped[bool] = mapped_column(default=False)
 
     # OAuth fields (filled when user signs in via Google/GitHub)
@@ -181,6 +152,13 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     github_id: Mapped[str | None] = mapped_column(String(50), unique=True, index=True, default=None)
     oauth_provider: Mapped[str | None] = mapped_column(String(20), default=None)
     email_verified: Mapped[bool] = mapped_column(default=False)
+
+    # Role assignments (see modules/role/models.py)
+    user_roles: Mapped[list["UserRole"]] = relationship(
+        "UserRole", back_populates="user", lazy="select",
+        cascade="all, delete-orphan", passive_deletes=True,
+        default_factory=list, init=False,
+    )
 
     @property
     def is_active(self) -> bool:
@@ -190,37 +168,9 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
 Key points:
 
 - `init=False` excludes the field from the dataclass `__init__` (used for the primary key and timestamps you don't want callers to set).
-- `index=True` adds a database index on lookup-heavy columns (`username`, `email`, `tier_id`, OAuth IDs).
+- `index=True` adds a database index on lookup-heavy columns (`username`, `email`, OAuth IDs).
 - `unique=True` enforces uniqueness at the DB level.
 - `is_active` is a **derived property**, not a column — it returns `not is_deleted`. The `crudauth` auth library reads it during login so soft-deleted users can't authenticate, while `is_deleted` stays the single source of truth.
-
-## The RateLimit Model
-
-`modules/rate_limit/models.py` shows a no-relationship model with a foreign key:
-
-```python
-from sqlalchemy import ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
-
-from ...infrastructure.database import Base
-from ...infrastructure.database.models import SoftDeleteMixin, TimestampMixin
-
-
-class RateLimit(Base, TimestampMixin, SoftDeleteMixin):
-    __tablename__ = "rate_limits"
-
-    id: Mapped[int] = mapped_column(
-        "id", autoincrement=True, nullable=False,
-        primary_key=True, init=False,
-    )
-    tier_id: Mapped[int] = mapped_column(ForeignKey("tiers.id"), index=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    path: Mapped[str] = mapped_column(String, nullable=False)
-    limit: Mapped[int] = mapped_column(Integer, nullable=False)
-    period: Mapped[int] = mapped_column(Integer, nullable=False)
-```
-
-Each rate limit row says: "for tier X, requests to `path` are capped at `limit` per `period` seconds."
 
 ## Soft Deletion
 

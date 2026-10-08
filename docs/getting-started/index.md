@@ -95,7 +95,6 @@ You now have a working FastAPI app with:
 - PostgreSQL database with Alembic migrations
 - Redis-backed cache and rate limiting
 - Session-based authentication with optional OAuth (Google, GitHub)
-- API keys with per-key permissions
 - SQLAdmin admin interface at `/admin`
 - Async background task support via Taskiq
 
@@ -143,7 +142,7 @@ curl http://localhost:8000/api/v1/users/me -b cookies.txt
 
 - **[Configuration Guide](configuration.md)** - Environment variables and settings
 - **[Project Structure](../user-guide/project-structure.md)** - How the code is organized
-- **[Authentication](../user-guide/authentication/index.md)** - Sessions, OAuth, and API keys
+- **[Authentication](../user-guide/authentication/index.md)** - Sessions and OAuth
 
 ### Popular Features
 
@@ -155,7 +154,6 @@ curl http://localhost:8000/api/v1/users/me -b cookies.txt
 ### Development & Deployment
 
 - **[Development Guide](../user-guide/development.md)** - Extend and customize
-- **[Testing](../user-guide/testing.md)** - Write tests for your API
 - **[Production Deployment](../user-guide/production.md)** - Deploy to production
 
 ## Alternative Setup Methods

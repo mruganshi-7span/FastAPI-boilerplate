@@ -1,0 +1,4 @@
+C:\Users\Mruganshi\Python\FastAPI-boilerplate\.venv\Lib\site-packages\starlette\config.py:62: UserWarning: Config file '/app/.env' not found.
+  warnings.warn(f"Config file '{env_file}' not found.")
+2026-10-08 15:52:29 [    INFO] src.infrastructure.logging.factory: Logging configured for development environment
+['/admin', '/api/v1/auth/check-auth', '/api/v1/auth/login', '/api/v1/auth/logout', '/api/v1/auth/logout-all', '/api/v1/auth/refresh-csrf', '/api/v1/users/', '/api/v1/users/active-and-inactive/{username}', '/api/v1/users/db/{username}', '/api/v1/users/me', '/api/v1/users/{username}', '/docs', '/docs/oauth2-redirect', '/health', '/openapi.json', '/redoc']

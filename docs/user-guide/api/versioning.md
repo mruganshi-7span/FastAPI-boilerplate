@@ -28,17 +28,11 @@ router.include_router(v1_router)
 from fastapi import APIRouter
 
 from ....infrastructure.auth.routes import router as auth_router
-from ....modules.api_keys.routes import router as api_keys_router
-from ....modules.rate_limit.routes import router as rate_limits_router
-from ....modules.tier.routes import router as tiers_router
 from ....modules.user.routes import router as users_router
 
 router = APIRouter(prefix="/v1")
 router.include_router(users_router, prefix="/users")
-router.include_router(tiers_router, prefix="/tiers")
-router.include_router(rate_limits_router, prefix="/rate-limits")
 router.include_router(auth_router, prefix="/auth")
-router.include_router(api_keys_router, prefix="/api-keys")
 ```
 
 The aggregator is the **only** place that knows about every module's router. Each module exposes a single `router` from its `routes.py`, and v1 mounts them all under their respective prefixes.
@@ -58,10 +52,7 @@ So `users_router → /users → /v1/users → /api/v1/users → /api/v1/users/me
 | URL prefix | Source |
 |------------|--------|
 | `/api/v1/users/*` | `modules/user/routes.py` |
-| `/api/v1/tiers/*` | `modules/tier/routes.py` |
-| `/api/v1/rate-limits/*` | `modules/rate_limit/routes.py` |
 | `/api/v1/auth/*` | `infrastructure/auth/routes.py` |
-| `/api/v1/api-keys/*` | `modules/api_keys/routes.py` |
 
 ## Adding `v2`
 
@@ -85,8 +76,8 @@ router = APIRouter(prefix="/v2")
 router.include_router(users_router, prefix="/users")
 
 # Re-export anything that didn't change in v2 from v1:
-# from ....modules.tier.routes import router as tiers_router
-# router.include_router(tiers_router, prefix="/tiers")
+# from ....infrastructure.auth.routes import router as auth_router
+# router.include_router(auth_router, prefix="/auth")
 ```
 
 ### Step 2: Create v2 Routes Per Module
@@ -132,9 +123,9 @@ async def list_users(
 
 ```python
 # backend/src/interfaces/api/v2/__init__.py
-from ....modules.tier.routes import router as tiers_router
+from ....infrastructure.auth.routes import router as auth_router
 
-router.include_router(tiers_router, prefix="/tiers")
+router.include_router(auth_router, prefix="/auth")
 ```
 
 ### Step 3: Mount v2 Alongside v1
@@ -165,7 +156,6 @@ class UserRead(BaseModel):
     username: str
     email: EmailStr
     profile_image_url: str
-    tier_id: int | None
     is_superuser: bool = False
     email_verified: bool = False
     oauth_provider: str | None = None
@@ -178,7 +168,6 @@ class UserReadV2(BaseModel):
     username: str
     email: EmailStr
     avatar_url: str                          # renamed from profile_image_url
-    subscription_tier: str | None            # changed from tier_id (int) to tier name
     is_superuser: bool = False
     email_verified: bool = False
     created_at: datetime                     # newly exposed
@@ -261,39 +250,13 @@ main.mount("/api/v2", v2)
 
 You'll get `/api/v1/docs` and `/api/v2/docs` independently. Note the boilerplate ships a single mounted app today — adopt this only when you genuinely need separate docs.
 
-## Testing Multiple Versions
-
-Once v2 exists, run the test suite against both:
-
-```python
-import pytest
-from httpx import AsyncClient
-
-
-@pytest.mark.asyncio
-async def test_v1_users_returns_list(client: AsyncClient):
-    resp = await client.get("/api/v1/users/")
-    # whatever v1's contract is — list, paginated, etc.
-    assert resp.status_code in {200, 401, 403}
-
-
-@pytest.mark.asyncio
-async def test_v2_users_paginated(client: AsyncClient):
-    resp = await client.get("/api/v2/users/")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "data" in body
-    assert "total_count" in body
-    assert "page" in body
-```
-
 ## Best Practices
 
 ### What counts as a breaking change?
 
 - Removing a field from a response
 - Renaming a field
-- Changing a field's type (e.g. `tier_id: int | None` → `tier_name: str`)
+- Changing a field's type (e.g. `id: int` → `id: str`)
 - Tightening validation in a way that previously-valid input now fails
 - Adding a required request field
 - Changing default behavior (e.g. unpaginated → paginated)
@@ -319,7 +282,6 @@ Tag the v2 release with the list of breaking changes:
 Breaking changes vs v1:
 - `GET /users/` now returns `PaginatedListResponse` instead of `list[UserRead]`
 - `UserRead.profile_image_url` renamed to `avatar_url`
-- `UserRead.tier_id` (int) replaced with `subscription_tier` (string)
 - `POST /users/` now requires authentication
 - `UserCreate` now requires `accept_terms: bool`
 ```

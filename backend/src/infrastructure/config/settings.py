@@ -24,12 +24,8 @@ env_paths = [
 
 env_path = next((path for path in env_paths if os.path.isfile(path)), env_paths[0])
 
-running_under_pytest = os.environ.get("ENVIRONMENT") == "pytest" or "PYTEST_VERSION" in os.environ
-if running_under_pytest:
-    config = Config()
-else:
-    logger.info(f"Using environment file at: {env_path}")
-    config = Config(env_path)
+logger.info(f"Using environment file at: {env_path}")
+config = Config(env_path)
 
 
 class EnvironmentOption(StrEnum):
@@ -141,7 +137,7 @@ class RateLimiterSettings(BaseSettings):
     """Rate limiter settings.
 
     Rate limiting is provided by crudauth. These settings configure the enable
-    flag, the backend, the default per-path limits, and the Redis connection the
+    flag, the backend, the global default limit, and the Redis connection the
     shared limiter client uses.
 
     Attributes:
@@ -291,7 +287,6 @@ class AdminSettings(BaseSettings):
     ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="")
     ADMIN_USERNAME: str = config("ADMIN_USERNAME", default="")
     ADMIN_PASSWORD: str = config("ADMIN_PASSWORD", default="")
-    DEFAULT_TIER_NAME: str = config("DEFAULT_TIER_NAME", default="free")
 
 
 class SQLAdminSettings(BaseSettings):

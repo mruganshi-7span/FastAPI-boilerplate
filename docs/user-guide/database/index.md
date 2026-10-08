@@ -216,25 +216,12 @@ The boilerplate ships with these models (one per feature module):
 ### `User` — `modules/user/models.py`
 - Username, email, hashed password, full name, profile image
 - OAuth fields: `oauth_provider`, `google_id`, `github_id`
-- Foreign key to `tier`
 - Mixins: `TimestampMixin`, `SoftDeleteMixin`
 - Table name: **`user`** (singular)
 
-### `Tier` — `modules/tier/models.py`
-- Just `name` and `description` — no pricing or business logic
-- One-to-many relationship with users
-- Mixins: `TimestampMixin`, `SoftDeleteMixin`
-- Table name: **`tiers`**
-
-### `RateLimit` — `modules/rate_limit/models.py`
-- Per-tier rate limits keyed by API path
-- Fields: `tier_id`, `name`, `path`, `limit`, `period`
-- Mixins: `TimestampMixin`, `SoftDeleteMixin`
-- Table name: **`rate_limits`**
-
-### `APIKey`, `KeyUsage`, `KeyPermission` — `modules/api_keys/models.py`
-- API key issuance with per-key permissions and usage tracking
-- Table names: `api_keys`, `key_usage`, `key_permissions`
+### `Role`, `RolePermission`, `UserRole` — `modules/role/models.py`
+- Named roles carrying `resource.action` permissions, assigned to users
+- Table names: `roles`, `role_permissions`, `user_roles`
 
 ## Directory Structure
 
@@ -253,9 +240,7 @@ backend/src/
     │   ├── crud.py           # crud_users = FastCRUD(User)
     │   ├── service.py        # UserService (business rules)
     │   └── routes.py         # /api/v1/users endpoints
-    ├── tier/
-    ├── rate_limit/
-    └── api_keys/
+    └── role/
 ```
 
 The shared `Base` and mixins are in `infrastructure/database/`. Everything feature-specific is colocated under the module.

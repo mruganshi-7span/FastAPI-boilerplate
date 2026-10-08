@@ -129,7 +129,7 @@ The boilerplate ships a multi-stage `backend/Dockerfile`:
 |--------------------|--------------------------------------------------|
 | `requirements-stage` | Exports pinned requirements from `uv.lock`     |
 | `base`             | Production base — copies source, installs deps  |
-| `dev`              | Adds dev deps, mounts tests, runs `fastapi dev` |
+| `dev`              | Adds dev deps, runs `fastapi dev` |
 | `migrate`          | Runs `alembic upgrade head` and exits           |
 | `prod`             | Runs `fastapi run` with configurable workers   |
 
@@ -296,7 +296,7 @@ Before shipping:
 - [ ] `ADMIN_ENABLED=false` (or restricted at the network layer)
 - [ ] Database migrations run via the `migrate` Dockerfile stage with `CONFIRM_PRODUCTION_MIGRATION=yes`
 - [ ] `CREATE_TABLES_ON_STARTUP=false`
-- [ ] Pre-commit and CI are running on every PR (lint, mypy, tests)
+- [ ] Pre-commit and CI are running on every PR (lint, mypy)
 - [ ] Backups configured for the production database and Redis (if you're using Redis for sessions / state you can't lose)
 - [ ] Monitoring set up: error rates, latency p95/p99, DB connection saturation, queue depth, Redis memory
 
@@ -336,7 +336,7 @@ You're on `SESSION_BACKEND=memory`. Switch to `redis`; sessions use the cache's 
 
 ### "Sudden burst of 429s after a config change"
 
-Check that your rate-limit rule rows still match the routes. After path renames or sanitization rule changes, the lookup may miss and apply the (often tighter) `DEFAULT_RATE_LIMIT_LIMIT` instead.
+Check `DEFAULT_RATE_LIMIT_LIMIT` and `DEFAULT_RATE_LIMIT_PERIOD`. One global limit applies to every API route, with one counter per caller shared by every route, so a tighter value hits every endpoint.
 
 ### "Cache backend not available" warnings under load
 
@@ -365,4 +365,3 @@ The worker process isn't running, isn't pointed at the same Redis, or hasn't imp
 - **[Configuration → Environment-Specific](configuration/environment-specific.md)** — per-environment env-var matrix
 - **[Database → Migrations](database/migrations.md)** — zero-downtime schema-change patterns
 - **[Authentication → Sessions](authentication/sessions.md)** — production session configuration
-- **[Testing](testing.md)** — the test setup that ships with the boilerplate

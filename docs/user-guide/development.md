@@ -44,7 +44,7 @@ uv run --extra dev taskiq worker infrastructure.taskiq.worker:default_broker --r
 
 ## The Dev Toolchain
 
-The project ships configured `ruff`, `mypy`, and `pytest` via `backend/pyproject.toml`:
+The project ships configured `ruff` and `mypy` via `backend/pyproject.toml`:
 
 ```bash
 cd backend
@@ -57,11 +57,6 @@ uv run ruff check --fix .          # auto-fix what ruff can
 # Type check
 uv run mypy src
 
-# Tests
-uv run pytest
-uv run pytest -k "test_user"       # run tests matching a name
-uv run pytest -x                   # stop on first failure
-uv run pytest -n auto              # parallel via pytest-xdist
 ```
 
 Ruff is configured (`pyproject.toml:[tool.ruff]`) with:
@@ -212,7 +207,7 @@ async def list_workspace_items(
     ...
 ```
 
-Per-module service aliases follow the same pattern — see the existing `modules/{user,tier,rate_limit,api_keys}/dependencies.py` files for real examples.
+Per-module service aliases follow the same pattern — see the existing `modules/{user,role}/dependencies.py` files for real examples.
 
 ## Debugging Tips
 
@@ -261,78 +256,6 @@ When `ENVIRONMENT=production`, `infrastructure/security/` runs validators at sta
 
 If your prod boot is failing with one of those, that's your hint — don't bypass the validator.
 
-## Testing
-
-The repo is **set up** for `pytest` but doesn't ship example tests yet — `backend/pyproject.toml` configures pytest with:
-
-```toml
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
-env = ["ENVIRONMENT=pytest", "PYTEST_CURRENT_TEST=true"]
-```
-
-Tests run with `ENVIRONMENT=pytest`, which the production validator treats as "not production" — your test suite won't be blocked by missing prod-only env vars.
-
-A sane starting `tests/conftest.py`:
-
-```python
-# tests/conftest.py
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from src.infrastructure.database.models import Base
-from src.infrastructure.database.session import async_session
-from src.interfaces.main import app
-
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/test_db"
-
-
-@pytest_asyncio.fixture
-async def db_engine():
-    engine = create_async_engine(TEST_DATABASE_URL)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def db_session(db_engine) -> AsyncSession:
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
-    async with factory() as session:
-        yield session
-
-
-@pytest_asyncio.fixture
-async def client(db_session):
-    async def override_db():
-        yield db_session
-
-    app.dependency_overrides[async_session] = override_db
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-    app.dependency_overrides.clear()
-```
-
-Then a smoke test:
-
-```python
-# tests/test_smoke.py
-async def test_health(client):
-    response = await client.get("/api/v1/health")
-    assert response.status_code == 200
-```
-
-For tests that genuinely need Postgres semantics (FK constraints, ARRAY types, JSONB), `testcontainers-postgres` is already a dev dependency — spin up a real Postgres in a fixture instead of mocking the database.
-
-For unit tests on services, mock at the **CRUD layer**, not at the database. The service contract is "I call `crud_widgets.get` and get back a dict-or-None"; that's the seam to mock.
-
 ## Customizing the Settings
 
 Settings live in `backend/src/infrastructure/config/settings.py`. To add a new env-driven value:
@@ -372,11 +295,11 @@ The boilerplate uses `import_models("src.modules")` in Alembic to discover model
 
 ### Forgetting `lazy="selectin"` on a relationship
 
-SQLAdmin runs in async context. A relationship without `lazy="selectin"` raises `MissingGreenlet` when the admin tries to render it. `User.tier` and other relationships in the boilerplate already use this pattern — copy from those. (`Tier.users` is a deliberate exception: it uses `lazy="select"` so loading a tier doesn't load every user in it.)
+SQLAdmin runs in async context. A relationship without `lazy="selectin"` raises `MissingGreenlet` when the admin tries to render it. Relationships like `User.user_roles` in the boilerplate already use this pattern — copy from those.
 
 ### Dataclass models without `init=False` on relationships
 
-`Base = DeclarativeBase + MappedAsDataclass`. Relationship fields must use `init=False` or they end up in the dataclass `__init__` and crash on insert. See `modules/user/models.py:User.tier` for the pattern.
+`Base = DeclarativeBase + MappedAsDataclass`. Relationship fields must use `init=False` or they end up in the dataclass `__init__` and crash on insert. See `modules/user/models.py:User.user_roles` for the pattern.
 
 ### Catching exceptions too broadly in routes
 
@@ -396,10 +319,9 @@ The `@cache` decorator inspects `request.method` to decide read vs invalidate. T
 | Database session             | `backend/src/infrastructure/database/session.py`            |
 | Module template (reference)  | `backend/src/modules/user/`                                 |
 | Pre-commit                   | `.pre-commit-config.yaml`                                   |
-| pyproject (lint / type / test) | `backend/pyproject.toml`                                  |
+| pyproject (lint / type)        | `backend/pyproject.toml`                                  |
 
 ## Next Steps
 
 - **[Project Structure](project-structure.md)** — full layout walkthrough
-- **[Testing](testing.md)** — test patterns and infrastructure
 - **[Production](production.md)** — deployment and hardening checklist

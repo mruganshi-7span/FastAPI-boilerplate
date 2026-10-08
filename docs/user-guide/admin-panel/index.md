@@ -34,16 +34,15 @@ Visit <http://localhost:8000/admin>, enter those credentials, and you're in.
 
 ## What's Included
 
-The boilerplate registers two model views out of the box (in `src/interfaces/admin/views/`):
+The boilerplate registers one model view out of the box (in `src/interfaces/admin/views/`):
 
 | View | Source | Notes |
 |------|--------|-------|
 | **Users** | `views/users.py` | Create / edit / delete users; password hashing applied automatically; soft-delete-aware |
-| **Tiers** | `views/tiers.py` | Manage subscription tiers; uses `TierService.permanent_delete` to prevent orphaning users / rate limits |
 
-Both are categorized under "Users & Access" and provide search, sort, filter, and CSV export.
+It is categorized under "Users & Access" and provides search, sort, filter, and CSV export.
 
-If you want admin views for `RateLimit`, `APIKey`, etc., follow the [Adding Models](adding-models.md) guide.
+If you want admin views for other models, follow the [Adding Models](adding-models.md) guide.
 
 ## Common Operations
 
@@ -53,11 +52,7 @@ Navigate to **Users → Create**. Fill the form. The `Password` field accepts pl
 
 ### Editing a User
 
-Click any user row → **Edit**. You can change the tier, toggle `is_superuser`, update OAuth fields, etc. The hashed password field is shown but you only need to fill it if you want to reset the password.
-
-### Deleting a Tier
-
-The Tier delete button calls `TierService.permanent_delete`, which **fails** if any users or rate limits still reference the tier. This prevents dangling foreign keys. Reassign or remove the dependents first.
+Click any user row → **Edit**. You can toggle `is_superuser`, update OAuth fields, etc. The hashed password field is shown but you only need to fill it if you want to reset the password.
 
 ## How Authentication Works
 
@@ -118,7 +113,6 @@ Or keep it enabled but restrict network access at the load balancer / proxy leve
 | Authentication backend | `backend/src/interfaces/admin/auth.py` |
 | Dataclass-model mixin | `backend/src/interfaces/admin/mixins.py` |
 | User view | `backend/src/interfaces/admin/views/users.py` |
-| Tier view | `backend/src/interfaces/admin/views/tiers.py` |
 | View registry | `backend/src/interfaces/admin/views/__init__.py` |
 
 ## Next Steps

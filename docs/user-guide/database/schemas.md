@@ -8,10 +8,7 @@ Each module owns its schemas, colocated with the model and CRUD:
 
 ```text
 backend/src/modules/
-├── user/schemas.py            # UserCreate, UserRead, UserUpdate, UserAnonymize, ...
-├── tier/schemas.py            # TierCreate, TierRead, TierUpdate
-├── rate_limit/schemas.py      # RateLimitCreate, RateLimitRead, RateLimitUpdate
-└── api_keys/schemas.py        # APIKeyCreate, APIKeyRead, APIKeyUpdate, KeyUsageRead
+└── user/schemas.py            # UserCreate, UserRead, UserUpdate, UserAnonymize, ...
 ```
 
 Cross-module shared schemas (timestamp/soft-delete mixins, common error shapes) live in `backend/src/modules/common/schemas.py`.
@@ -63,7 +60,6 @@ class User(TimestampSchema, UserBase, PersistentDeletion):
     hashed_password: str
     is_superuser: bool = False
     profile_image_url: str = "https://www.profileimageurl.com"
-    tier_id: int | None = None
 
     # OAuth
     google_id: str | None = None
@@ -80,7 +76,6 @@ class UserRead(BaseModel):
     email: EmailStr
     profile_image_url: str
     is_deleted: bool = False
-    tier_id: int | None
     is_superuser: bool = False
     email_verified: bool = False
     oauth_provider: str | None = None
@@ -153,10 +148,6 @@ class UserUpdateInternal(UserAdminUpdate):
     updated_at: datetime  # service stamps this before persisting
 
 
-class UserTierUpdate(BaseModel):
-    tier_id: int
-
-
 class UserDelete(BaseModel):
     model_config = ConfigDict(extra="forbid")
     is_deleted: bool
@@ -186,7 +177,7 @@ The schemas follow a consistent vocabulary across modules:
 | `Update` | Partial update body for PATCH (all fields optional) |
 | `AdminUpdate` | Update body extended with the fields only an administrator may set |
 | `UpdateInternal` | What the service stores on update (e.g. with stamped `updated_at`) |
-| `TierUpdate`, `Anonymize`, `Delete`, … | Operation-specific narrow schemas |
+| `Anonymize`, `Delete`, … | Operation-specific narrow schemas |
 
 ### Why Internal vs External
 

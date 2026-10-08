@@ -22,7 +22,7 @@ That's the whole admin-specific config. Everything else (engine, models, mount p
 
 The variables map to two settings classes in `src/infrastructure/config/settings.py`:
 
-- **`AdminSettings`** — `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_TIER_NAME`. Used by both the admin panel login *and* `scripts/setup_initial_data.py` to bootstrap the first superuser.
+- **`AdminSettings`** — `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. Used by both the admin panel login *and* `scripts/setup_initial_data.py` to bootstrap the first superuser.
 - **`SQLAdminSettings`** — `ADMIN_ENABLED`. Single toggle for the admin panel.
 
 ## What Happens at Startup
@@ -31,7 +31,7 @@ The variables map to two settings classes in `src/infrastructure/config/settings
 2. If `ADMIN_ENABLED=false`, the function returns `None` and the admin panel is **not mounted**
 3. Otherwise, an `AdminAuth` backend is constructed using `SECRET_KEY`
 4. A SQLAdmin `Admin` instance is created against the app's existing database `engine`
-5. `register_admin_views(admin)` adds `UserAdmin` and `TierAdmin` (from `views/`)
+5. `register_admin_views(admin)` adds `UserAdmin` (from `views/`)
 6. The admin app is mounted at `/admin`
 
 ## Login Authentication
@@ -116,7 +116,7 @@ ADMIN_PASSWORD=your-secure-password
 SECRET_KEY=insecure-secret-key-change-this-in-production
 ```
 
-Open <http://localhost:8000/admin>, log in, and you have access to Users and Tiers.
+Open <http://localhost:8000/admin>, log in, and you have access to Users.
 
 ### Production Hardening
 

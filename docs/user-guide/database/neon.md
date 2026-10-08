@@ -69,7 +69,7 @@ CREATE_TABLES_ON_STARTUP=false
 ```bash
 cd backend
 uv run alembic upgrade head
-uv run python -m scripts.setup_initial_data   # first admin user + default tier
+uv run python -m scripts.setup_initial_data   # first admin user
 uv run fastapi dev src/interfaces/main.py
 ```
 

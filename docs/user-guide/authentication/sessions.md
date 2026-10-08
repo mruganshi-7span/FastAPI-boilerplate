@@ -136,7 +136,7 @@ On every subsequent request, the auth dependency (via crudauth):
 1. Reads `session_id` from cookies
 2. Looks it up in the configured backend; rejects expired or missing sessions
 3. For mutating requests (POST/PUT/DELETE/PATCH), validates the CSRF token if `CSRF_ENABLED=true`
-4. Hands back a `Principal`; `get_current_user` then re-loads the full user row (joined with the `Tier` relationship via `lazy="selectin"`)
+4. Hands back a `Principal`; `get_current_user` then re-loads the full user row
 
 Logout (`POST /api/v1/auth/logout`) terminates the session record and clears the cookies. To end every session the user holds on all devices (e.g. after a suspected compromise), use `POST /api/v1/auth/logout-all`. See [Logout All Sessions](#logout-all-sessions).
 
@@ -184,7 +184,7 @@ Sessions are stored server-side. Configure via `SESSION_BACKEND`:
 | Value | When to use |
 |-------|-------------|
 | `redis` *(default)* | Production. Supports key expiration, pattern scans for cleanup, persists across restarts |
-| `memory` | Tests only. Cleared on restart, not safe for multi-process deploys |
+| `memory` | Local development only. Cleared on restart, not safe for multi-process deploys |
 
 The backends ship inside the `crudauth` library, not the boilerplate — `setup.py` just selects `redis` or `memory` based on `SESSION_BACKEND`. (Memcached is no longer a session option; it remains available for the general cache and rate limiter.)
 

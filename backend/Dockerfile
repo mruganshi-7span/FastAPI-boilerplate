@@ -58,9 +58,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements-dev.txt && \
     rm requirements-dev.txt
 
-# Copy test files for development
-COPY backend/tests ./tests
-
 # Create non-root user for security (same as production)
 RUN groupadd -r appuser && useradd -r -m -g appuser appuser
 RUN chown -R appuser:appuser /app

@@ -25,15 +25,6 @@ from .models import User
 crud_users: FastCRUD = FastCRUD(User)
 ```
 
-```python
-# backend/src/modules/tier/crud.py
-from fastcrud import FastCRUD
-
-from .models import Tier
-
-crud_tiers: FastCRUD = FastCRUD(Tier)
-```
-
 The CRUD instance is then imported by the module's `service.py`, which adds business logic on top — input validation, permission checks, password hashing, multi-step orchestration.
 
 ```python
@@ -111,7 +102,7 @@ await crud_users.get_multi(db=db, username__icontains="john")
 await crud_users.get_multi(db=db, created_at__gt=cutoff_datetime)
 
 # Set membership
-await crud_users.get_multi(db=db, tier_id__in=[1, 2, 3])
+await crud_users.get_multi(db=db, id__in=[1, 2, 3])
 ```
 
 Available operators include `__contains`, `__icontains`, `__startswith`, `__endswith`, `__gt`, `__ge`, `__lt`, `__le`, `__in`, `__not_in`, and others. See the [FastCRUD docs](https://benavlabs.github.io/fastcrud/) for the full list.
@@ -164,14 +155,11 @@ created = await crud_users.create(db=db, object=user_internal, schema_to_select=
 For models that reference other rows, just include the FK column on the create schema:
 
 ```python
-new_rate_limit = RateLimitCreate(
-    tier_id=tier.id,
-    name="users_list",
-    path="/api/v1/users/",
-    limit=100,
-    period=60,
+new_widget = WidgetCreate(
+    owner_id=user.id,
+    name="Dashboard",
 )
-await crud_rate_limits.create(db=db, object=new_rate_limit)
+await crud_widgets.create(db=db, object=new_widget)
 ```
 
 ## Update Operations
@@ -206,11 +194,11 @@ await crud_users.update(db=db, object=values, id=db_user["id"])
 `update()` accepts the same lookup args as `get_multi()` — pass non-id criteria to update many rows:
 
 ```python
-# Reset profile_image_url for everyone in a deprecated tier
+# Reset profile_image_url for everyone who signed up via a retired OAuth provider
 await crud_users.update(
     db=db,
     object=UserUpdate(profile_image_url="https://www.profileimageurl.com"),
-    tier_id=deprecated_tier_id,
+    oauth_provider="retired_provider",
 )
 ```
 
@@ -243,7 +231,7 @@ active_users = await crud_users.get_multi(db=db, is_deleted=False, limit=10)
 
 ## Joined Queries
 
-For models with relationships (e.g. `User.tier`), the relationship loads automatically via `lazy="selectin"`.
+For models with relationships (e.g. `User.user_roles`), the loading strategy is set on the relationship itself. `lazy="selectin"` loads related rows in one follow-up query; `lazy="select"` (the default in this codebase) loads them on first access.
 
 For ad-hoc joins without a configured relationship, use `get_joined` / `get_multi_joined`:
 
@@ -261,7 +249,7 @@ posts_with_authors = await crud_posts.get_multi_joined(
 # Each row: {..., "author_username": ..., "author_email": ...}
 ```
 
-The boilerplate also uses **`JoinConfig`** for more complex multi-join queries (see `UserService.get_rate_limits` for a real example with two joins).
+FastCRUD's **`JoinConfig`** covers more complex multi-join queries; see the [FastCRUD docs](https://benavlabs.github.io/fastcrud/) for details.
 
 ## Pagination
 
@@ -425,7 +413,7 @@ total = result["total_count"]  # works, but transfers data
 
 ### Pre-fetch related data in services
 
-If a route calls `crud_users.get` then `crud_tiers.get(tier_id)` separately, prefer using the existing `User.tier` relationship (auto-loaded with `selectin`) or a `get_joined` call, so the database only round-trips once.
+If a route calls `crud_users.get` and then fetches related rows with a second CRUD call, prefer a relationship loaded with `selectin` or a `get_joined` call, so the database only round-trips once.
 
 ## Next Steps
 

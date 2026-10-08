@@ -53,7 +53,7 @@ async def get_popular(request: Request, ...):
     ...
 ```
 
-**When to use:** read-only or near-read-only data where 1–5 minutes of staleness is acceptable. Reference data (countries, tier definitions), aggregates (top-N lists), expensive computations whose inputs change rarely.
+**When to use:** read-only or near-read-only data where 1–5 minutes of staleness is acceptable. Reference data (countries, currencies), aggregates (top-N lists), expensive computations whose inputs change rarely.
 
 **Don't use for:** anything a user just edited and expects to see immediately.
 
@@ -217,7 +217,7 @@ Cache warming proactively populates the cache so the first user request after a 
 
 ### At Application Startup (in the lifespan)
 
-The boilerplate's `lifespan_factory` (in `infrastructure/app_factory.py`) is where the cache is initialized. Warming sits naturally just after that point — but only for genuinely **small** datasets (reference tables, tier definitions, top-N aggregates). Don't pull a million rows into Redis on every boot.
+The boilerplate's `lifespan_factory` (in `infrastructure/app_factory.py`) is where the cache is initialized. Warming sits naturally just after that point — but only for genuinely **small** datasets (reference tables, country lists, top-N aggregates). Don't pull a million rows into Redis on every boot.
 
 The pattern, in your own `interfaces/main.py` setup:
 
@@ -242,9 +242,9 @@ async def lifespan(app: FastAPI):
 
 async def _warm_reference_data():
     # Small, slow-changing data — safe to warm at boot.
-    tiers = await _load_all_tiers()
-    for tier in tiers:
-        await set(key=f"tier:{tier['id']}", value=tier, expiration=86400)
+    countries = await _load_all_countries()
+    for country in countries:
+        await set(key=f"country:{country['id']}", value=country, expiration=86400)
 ```
 
 Wire it by passing `lifespan=lifespan` to `create_application()`.
@@ -327,7 +327,7 @@ Default is one hour (`3600`). Override per route based on staleness tolerance:
 
 | Data shape                                    | Suggested TTL              |
 |-----------------------------------------------|----------------------------|
-| Static reference data (tier list, countries)  | 24 hours (`86400`)         |
+| Static reference data (country list, currencies)  | 24 hours (`86400`)         |
 | User profile / public objects                 | 5–30 minutes (`300`–`1800`)|
 | Paginated list endpoints                      | 1–5 minutes (`60`–`300`)   |
 | Search results                                | 5–15 minutes (`300`–`900`) |

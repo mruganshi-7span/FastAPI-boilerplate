@@ -91,7 +91,7 @@ CLIENT_CACHE_ENABLED=true
 CLIENT_CACHE_MAX_AGE=60        # seconds
 ```
 
-When `CACHE_ENABLED=false`, the decorator becomes a no-op — useful in tests.
+When `CACHE_ENABLED=false`, the decorator becomes a no-op .
 
 See [Environment Variables](../configuration/environment-variables.md#cache) for the full reference.
 

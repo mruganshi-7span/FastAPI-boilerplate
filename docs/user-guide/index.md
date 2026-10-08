@@ -27,7 +27,7 @@ This guide covers all aspects of working with the FastAPI Boilerplate:
 - **[API Versioning](api/versioning.md)** - Manage API versions and backward compatibility
 
 ### Security & Authentication
-- **[Authentication Overview](authentication/index.md)** - Secure your API with session-based auth, OAuth, and API keys
+- **[Authentication Overview](authentication/index.md)** - Secure your API with session-based auth and OAuth
 - **[Sessions](authentication/sessions.md)** - Server-side sessions with HTTP-only cookies and CSRF protection
 - **[User Management](authentication/user-management.md)** - Handle user registration, login, and profiles
 - **[Permissions](authentication/permissions.md)** - Implement role-based access control
@@ -79,7 +79,7 @@ Ready to dive in? Here are recommended learning paths:
 
 ### For Production Deployment
 1. Understand [Cache Strategies](caching/cache-strategies.md) patterns
-2. Configure [Rate Limiting](rate-limiting/index.md) with user tiers
+2. Configure [Rate Limiting](rate-limiting/index.md) for your traffic
 3. Set up [Background Task Processing](background-tasks/index.md)
 4. Review the [Production Guide](production.md) for deployment considerations
 

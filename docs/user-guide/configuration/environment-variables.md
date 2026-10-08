@@ -85,8 +85,7 @@ CACHE_MEMCACHED_CONNECT_TIMEOUT=5
 
 ## Rate Limiting
 
-Provided by `crudauth`, on Redis or in memory. Limits are resolved per request from
-the user's tier and path, falling back to the defaults below, and each path keeps its own counter.
+Provided by `crudauth`, on Redis or in memory. A single global limit (`DEFAULT_RATE_LIMIT_LIMIT` requests per `DEFAULT_RATE_LIMIT_PERIOD` seconds) applies to every API route. Each caller (user ID, or IP address when anonymous) has one counter shared by every route.
 
 ```env
 RATE_LIMITER_ENABLED=true
@@ -268,12 +267,6 @@ ADMIN_NAME=Admin User
 ADMIN_EMAIL=admin@example.com
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=your-secure-password
-```
-
-The default tier name is also configurable (defaults to `free`):
-
-```env
-DEFAULT_TIER_NAME=free
 ```
 
 ## Logging

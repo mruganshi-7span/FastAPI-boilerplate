@@ -151,7 +151,7 @@ For development on your host machine. You provide PostgreSQL and Redis yourself.
     uv run alembic upgrade head
     ```
 
-6. **Create the initial admin user and tier**:
+6. **Create the initial admin user**:
 
     ```bash
     uv run python -m scripts.setup_initial_data
@@ -201,11 +201,6 @@ For contributors and anyone modifying the boilerplate itself.
     cp backend/.env.example backend/.env
     ```
 
-5. **Run the test suite to verify your setup**:
-
-    ```bash
-    uv run pytest
-    ```
 
 ## Configuration
 

@@ -66,7 +66,7 @@ The actual classes that ship with the boilerplate, all in `src/infrastructure/co
 | `AuthSettings` | `SECRET_KEY`, `SESSION_*`, `CSRF_ENABLED`, `TRUSTED_PROXY_HOPS`, `OAUTH_*` |
 | `APISettings` | API path overrides (`API_PREFIX`, `DOCS_URL`, `REDOC_URL`) |
 | `AppSettings` | `APP_NAME`, `APP_DESCRIPTION`, `VERSION`, `DEBUG`, contact info |
-| `AdminSettings` | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEFAULT_TIER_NAME` |
+| `AdminSettings` | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` |
 | `SQLAdminSettings` | `ADMIN_ENABLED` |
 | `SecuritySettings` | `PRODUCTION_SECURITY_VALIDATION_ENABLED`, `PRODUCTION_SECURITY_STRICT_MODE` |
 | `LoggingSettings` | All `LOG_*` |
@@ -245,31 +245,6 @@ You'll also want to:
 - Drop the corresponding env vars from `.env.example`
 - Disable startup of those subsystems in `infrastructure/app_factory.py`
 
-## Testing Settings
-
-The test suite uses fixtures that override settings. The general pattern:
-
-```python
-import pytest
-from src.infrastructure.config.settings import Settings
-
-
-@pytest.fixture
-def test_settings(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "local")
-    monkeypatch.setenv("CACHE_ENABLED", "false")
-    monkeypatch.setenv("RATE_LIMITER_ENABLED", "false")
-    return Settings()
-```
-
-For one-off overrides without env vars, instantiate the relevant settings class directly with kwargs:
-
-```python
-def test_storage_validation():
-    with pytest.raises(ValueError, match="cannot exceed 100MB"):
-        StorageSettings(MAX_UPLOAD_SIZE_BYTES=200_000_000)
-```
-
 ## Best Practices
 
 ### Organization
@@ -289,11 +264,6 @@ def test_storage_validation():
 
 - The `Settings` instance is created once at import time and shared via `get_settings()` — don't instantiate it per-request
 - Keep validators cheap; they run at startup but they also run if anyone re-instantiates `Settings`
-
-### Testing
-
-- Use `monkeypatch.setenv(...)` to vary env vars per test
-- Don't reach for the global `settings` in tests when you can pass an instance directly
 
 ## See Also
 

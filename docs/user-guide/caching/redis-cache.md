@@ -243,13 +243,13 @@ CACHE_REDIS_CONNECT_TIMEOUT=5
 CACHE_REDIS_POOL_SIZE=10
 ```
 
-When `CACHE_ENABLED=false`, the decorator becomes a no-op (the handler runs every time). Use this in tests or when isolating performance issues.
+When `CACHE_ENABLED=false`, the decorator becomes a no-op (the handler runs every time). Use this when isolating performance issues.
 
 ## Picking Expiration Times
 
 | Data shape | Suggested TTL |
 |------------|---------------|
-| Static reference data (e.g. country list, tier list) | 24 hours (`86400`) |
+| Static reference data (e.g. country list, currency list) | 24 hours (`86400`) |
 | User profile / public objects | 5–30 minutes (`300`–`1800`) |
 | Paginated list endpoints | 1–5 minutes (`60`–`300`) |
 | Search results | 5–15 minutes (`300`–`900`) |

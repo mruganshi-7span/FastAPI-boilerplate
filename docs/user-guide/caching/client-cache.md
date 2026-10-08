@@ -58,7 +58,7 @@ When `CLIENT_CACHE_ENABLED=false`, no `Cache-Control` header is set by middlewar
 
 ## Overriding for a Specific Endpoint
 
-If you want a particular API endpoint to opt **into** browser caching, set the header in the handler. Middleware runs after the handler, so a header set in the route is overwritten — meaning you have to either set it via `Response` directly (and let the middleware overwrite anyway) **or** use a small route-level middleware. The simplest reliable pattern is to disable the global middleware in tests/docs and set headers explicitly in your routes:
+If you want a particular API endpoint to opt **into** browser caching, set the header in the handler. Middleware runs after the handler, so a header set in the route is overwritten — meaning you have to either set it via `Response` directly (and let the middleware overwrite anyway) **or** use a small route-level middleware. The simplest reliable pattern is to set headers explicitly in your routes:
 
 ```python
 from fastapi import APIRouter, Response

@@ -60,7 +60,6 @@ A user with `is_superuser=true` in the application database can call superuser-o
 Once logged in to `/admin`:
 
 - **Users** view: create / edit / delete application users (goes against the `user` table)
-- **Tiers** view: assign tiers, edit names and descriptions
 - Password fields go through `on_model_change` for automatic hashing
 - Toggle `is_superuser` directly in the edit form
 

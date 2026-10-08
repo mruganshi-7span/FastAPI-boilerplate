@@ -62,16 +62,16 @@ Check that tables were created:
     psql -h localhost -U postgres -d postgres -c "\dt"
     ```
 
-You should see tables like `user`, `tiers`, `rate_limits`, `api_keys`, `key_usage`, `key_permissions`.
+You should see tables like `user`, `roles`, `role_permissions`, `user_roles`.
 
 ## Initial Setup
 
-Create the first admin user and the default tier.
+Create the first admin user.
 
 !!! warning "Prerequisites"
     Make sure the database tables are created before running this. With `CREATE_TABLES_ON_STARTUP=true` (default), this happens automatically the first time the app boots.
 
-### Create Admin User and Default Tier
+### Create Admin User
 
 The admin credentials come from `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` in `backend/.env`.
 
@@ -90,7 +90,6 @@ The admin credentials come from `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, a
 
 This creates:
 
-- A default tier (used as the fallback for new users)
 - The admin user (with `is_superuser=true`)
 
 ## Testing Core Features
@@ -151,41 +150,9 @@ Returns `{"authenticated": true, "user": {...}, "session": {...}}` when logged i
 curl -X POST "http://localhost:8000/api/v1/auth/logout" -b cookies.txt -c cookies.txt
 ```
 
-### API Keys
+### Rate Limiting
 
-For programmatic access (machine-to-machine clients), create an API key while logged in:
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/api-keys/" \
-  -H "Content-Type: application/json" \
-  -b cookies.txt \
-  -d '{
-    "name": "My Integration Key",
-    "permissions": {},
-    "usage_limits": {}
-  }'
-```
-
-⚠️ **The full API key is shown once in the response.** Store it securely.
-
-List your keys:
-
-```bash
-curl http://localhost:8000/api/v1/api-keys/ -b cookies.txt
-```
-
-### Tiers and Rate Limits
-
-```bash
-# List tiers
-curl http://localhost:8000/api/v1/tiers/
-
-# Get a tier by name
-curl http://localhost:8000/api/v1/tiers/free
-
-# List rate limits
-curl http://localhost:8000/api/v1/rate-limits/
-```
+A single global limit (DEFAULT_RATE_LIMIT_LIMIT requests per DEFAULT_RATE_LIMIT_PERIOD seconds) applies to every API route. Each caller (user ID, or client IP when anonymous) has one counter shared by every route. Once exceeded, requests return `429`.
 
 ### Caching
 
@@ -258,19 +225,18 @@ You've verified your install and tested the main features. Now:
 
 1. **[Project Structure](../user-guide/project-structure.md)** - How the code is organized
 2. **[Database Guide](../user-guide/database/index.md)** - Models, schemas, CRUD
-3. **[Authentication](../user-guide/authentication/index.md)** - Sessions, OAuth, API keys
+3. **[Authentication](../user-guide/authentication/index.md)** - Sessions, OAuth
 
 ### Advanced Features
 
 1. **[Caching](../user-guide/caching/index.md)** - Redis-backed cache
 2. **[Background Tasks](../user-guide/background-tasks/index.md)** - Async jobs with Taskiq
-3. **[Rate Limiting](../user-guide/rate-limiting/index.md)** - Per-tier rate limits
+3. **[Rate Limiting](../user-guide/rate-limiting/index.md)** - Global per-caller rate limit
 
 ### Development Workflow
 
 1. **[Development Guide](../user-guide/development.md)** - Extend the boilerplate
-2. **[Testing](../user-guide/testing.md)** - Test your features
-3. **[Production](../user-guide/production.md)** - Deploy
+2. **[Production](../user-guide/production.md)** - Deploy
 
 ## Getting Help
 

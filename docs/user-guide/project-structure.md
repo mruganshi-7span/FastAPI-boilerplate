@@ -30,18 +30,16 @@ backend/
 │   └── versions/
 ├── scripts/                  # One-off setup scripts
 │   ├── create_first_superuser.py
-│   ├── create_first_tier.py
 │   ├── create_tables.py
 │   └── setup_initial_data.py
 ├── src/                      # Application source (the three layers below)
-└── tests/                    # Test suite (unit + integration)
 ```
 
 ### Configuration Files
 
 | File | Purpose |
 |------|---------|
-| `pyproject.toml` | Project metadata, dependencies (`[project]`), tooling config (ruff, mypy, pytest) |
+| `pyproject.toml` | Project metadata, dependencies (`[project]`), tooling config (ruff, mypy) |
 | `uv.lock` | Locks exact dependency versions for reproducible installs |
 | `Dockerfile` | Multi-stage build: requirements export → base → dev/prod/migrate stages |
 | `alembic.ini` | Alembic settings (script location, logging) |
@@ -77,7 +75,7 @@ interfaces/
     ├── initialize.py         # SQLAdmin setup (mounted at /admin)
     ├── auth.py               # Admin auth backend
     ├── mixins.py
-    └── views/                # SQLAdmin model views (Tier, User, etc.)
+    └── views/                # SQLAdmin model views (User, etc.)
 ```
 
 `main.py` is the entry point — `uv run fastapi dev src/interfaces/main.py` starts here. The `v1/__init__.py` aggregator imports each module's `routes` and includes them under the right prefix.
@@ -124,10 +122,7 @@ modules/
 │   ├── routes.py             # APIRouter with /users endpoints
 │   ├── permissions.py        # UserPermission StrEnum (user.read, user.update, ...)
 │   └── enums.py              # OAuthProvider, etc.
-├── role/                     # RBAC: Role, RolePermission, UserRole + the permission registry
-├── tier/                     # Subscription tiers (model + simple CRUD)
-├── rate_limit/               # Per-tier rate limit definitions
-└── api_keys/                 # API keys, key usage, key permissions
+└── role/                     # RBAC: Role, RolePermission, UserRole + the permission registry
 ```
 
 Each module is **self-contained**: drop it in, drop it out, with minimal blast radius. The aggregator at `interfaces/api/v1/__init__.py` is the only place that knows about every module's router.
@@ -164,35 +159,15 @@ uv run alembic upgrade head
 
 ```text
 scripts/
-├── setup_initial_data.py     # All-in-one: tables + tier + admin
+├── setup_initial_data.py     # All-in-one: tables + admin
 ├── create_first_superuser.py # Just the admin user
-├── create_first_tier.py      # Just the default tier
 └── create_tables.py          # Just the database tables
 ```
 
-The most common entry point is `setup_initial_data` which calls all three.
+The most common entry point is `setup_initial_data` which calls the other two.
 
 ```bash
 uv run python -m scripts.setup_initial_data
-```
-
-## Tests (`backend/tests/`)
-
-```text
-tests/
-├── conftest.py               # Pytest fixtures (Postgres testcontainer, db session, client, mocks)
-├── unit/                     # Unit tests (no external deps)
-│   ├── infrastructure/
-│   └── modules/
-└── integration/              # Integration tests (real Postgres via testcontainers)
-```
-
-Run from `backend/`:
-
-```bash
-uv run pytest tests/unit       # fast, no Docker
-uv run pytest tests/integration  # spins up Postgres in Docker via testcontainers
-uv run pytest                  # everything
 ```
 
 ## Architectural Patterns

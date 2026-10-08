@@ -9,7 +9,6 @@
 #
 #     uv sync             # syncs the workspace (one venv shared by all members)
 #     uv run bp ...       # runs the CLI from cli/, accessible from any cwd
-#     uv run pytest       # runs the backend test suite
 #
 # To install `bp` machine-wide so it works outside this repo:
 #

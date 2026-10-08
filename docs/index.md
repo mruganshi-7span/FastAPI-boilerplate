@@ -56,9 +56,8 @@ Postgres is the only hard requirement of those you have to provide — run the b
 ### Security & Authentication
 - Server-side session authentication with secure HTTP-only cookies
 - OAuth 2.0 sign-in (Google wired; add others via crudauth's `OAuthCredentials`) using PKCE
-- API keys with per-key permissions and usage tracking
 - CSRF protection and login rate limiting
-- Role-based access control with user tiers
+- Role-based access control
 - Production-ready security configurations
 
 ### Developer Experience
@@ -66,7 +65,6 @@ Postgres is the only hard requirement of those you have to provide — run the b
 - Automatic API documentation
 - Database migrations with Alembic
 - Background task processing
-- Extensive test coverage
 - Docker Compose for easy development
 
 ### Production Ready
@@ -110,14 +108,13 @@ Your API will be available at `http://localhost:8000/docs`
 
 ### For Developers
 - **[Development](user-guide/development.md)** - Extending and customizing the boilerplate
-- **[Testing](user-guide/testing.md)** - Testing strategies and best practices
 - **[Production](user-guide/production.md)** - Production deployment guides
 
 ## Perfect For
 
 - **REST APIs** - Build robust, scalable REST APIs
 - **Microservices** - Create microservice architectures
-- **SaaS Applications** - Multi-tenant applications with user tiers
+- **SaaS Applications** - Multi-tenant applications with role-based access
 - **Data APIs** - APIs for data processing and analytics
 
 ## Building a complete SaaS? Meet FastroAI

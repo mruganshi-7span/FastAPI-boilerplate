@@ -12,7 +12,7 @@ ENVIRONMENT=development
 | Value | Intended Use |
 |-------|--------------|
 | `development` | Local dev with verbose logging and DEBUG-level output |
-| `local` | Equivalent to `development` for default config (used by tests / CI) |
+| `local` | Equivalent to `development` for default config |
 | `staging` | Pre-production testing — structured logs, INFO level |
 | `production` | Live deployment — JSON logs, security validator on, docs gated |
 

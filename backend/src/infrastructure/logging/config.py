@@ -23,7 +23,6 @@ from ..config.settings import EnvironmentOption, get_settings
 from .handlers import (
     create_console_handler,
     create_file_handler,
-    create_null_handler,
 )
 
 
@@ -174,30 +173,6 @@ def _configure_noisy_loggers() -> None:
     }
 
     for logger_name, level in noisy_loggers.items():
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-
-def configure_testing_logging() -> None:
-    """Configure minimal logging for testing environments.
-
-    Sets up logging that minimizes output during tests while still
-    capturing important error information. Can be called from test
-    fixtures to override normal logging configuration.
-    """
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-
-    root_logger.addHandler(create_null_handler())
-
-    root_logger.setLevel(logging.ERROR)
-
-    test_loggers = {
-        "sqlalchemy.engine": logging.ERROR,
-        "asyncpg": logging.ERROR,
-    }
-
-    for logger_name, level in test_loggers.items():
         logger = logging.getLogger(logger_name)
         logger.setLevel(level)
 

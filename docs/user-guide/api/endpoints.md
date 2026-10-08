@@ -52,9 +52,6 @@ Per-module service aliases live in `modules/<name>/dependencies.py`:
 | File | Alias |
 |---|---|
 | `modules/user/dependencies.py` | `UserServiceDep` |
-| `modules/tier/dependencies.py` | `TierServiceDep` |
-| `modules/rate_limit/dependencies.py` | `RateLimitServiceDep` |
-| `modules/api_keys/dependencies.py` | `APIKeyServiceDep` |
 
 Both styles produce the same runtime behavior. The alias form reduces repetition and makes route signatures easier to scan.
 
@@ -121,7 +118,7 @@ The pattern across every module is the same:
 2. **Service** holds business logic (permission checks, multi-step orchestration)
 3. **CRUD** does the database I/O
 
-Below are the canonical patterns. They mirror what's already in `modules/user/routes.py`, `modules/tier/routes.py`, etc.
+Below are the canonical patterns. They mirror what's already in `modules/user/routes.py`, etc.
 
 ### Get a Single Item
 
@@ -328,10 +325,6 @@ async def update_widget(
 
 The permission names must be registered in the `role` module's registry, or `require_permissions` raises at import time. See [Permissions](../authentication/permissions.md#role-based-permissions) for declaring them.
 
-### API Key Authentication
-
-For machine-to-machine clients, see [Authentication](../authentication/index.md). API keys are managed via the `/api/v1/api-keys/*` endpoints in `modules/api_keys/routes.py`.
-
 ## Path & Query Parameters
 
 ### Path Parameters
@@ -385,7 +378,6 @@ Defined in `modules/common/exceptions.py`:
 - `ResourceExistsError`
 - `PermissionDeniedError`
 - `UserNotFoundError`, `UserExistsError`
-- `TierNotFoundError`
 - `ValidationError`
 
 Service methods raise these — they don't know about HTTP.
@@ -431,15 +423,15 @@ When you have an immediate HTTP-shaped failure with no service involvement, rais
 from ...infrastructure.auth.http_exceptions import NotFoundException
 
 
-@router.get("/{name}", response_model=TierRead)
-async def get_tier_by_name(...):
+@router.get("/{username}", response_model=UserRead)
+async def get_user_by_username(...):
     try:
-        return await tier_service.get_by_name(name, db)
-    except TierNotFoundError:
-        raise NotFoundException("Tier not found")
+        return await user_service.get_by_username(username, db)
+    except UserNotFoundError:
+        raise NotFoundException("User not found")
 ```
 
-This pattern is used in `modules/tier/routes.py`. See [Exceptions](exceptions.md) for the full picture.
+This pattern is used in `modules/user/routes.py`. See [Exceptions](exceptions.md) for the full picture.
 
 ## File Uploads
 

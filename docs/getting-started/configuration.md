@@ -145,7 +145,7 @@ RATE_LIMITER_REDIS_DB=1
 RATE_LIMITER_REDIS_PASSWORD=
 ```
 
-API limits are resolved by `crudauth` per request from the user's tier and path. Authenticated
+A single global limit (`DEFAULT_RATE_LIMIT_LIMIT` requests per `DEFAULT_RATE_LIMIT_PERIOD` seconds) applies to every API route. Each caller has one counter shared by every route. Authenticated
 requests are keyed by user ID; anonymous requests are keyed by the client IP, honoring
 `TRUSTED_PROXY_HOPS`.
 

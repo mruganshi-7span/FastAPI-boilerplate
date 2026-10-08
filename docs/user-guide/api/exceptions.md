@@ -20,10 +20,8 @@ Defined in `backend/src/modules/common/exceptions.py`. Services raise these — 
 | `PermissionDeniedError` | The current user can't perform this action |
 | `UserNotFoundError` (extends `ResourceNotFoundError`) | Specific: user lookup failed |
 | `UserExistsError` (extends `ResourceExistsError`) | Specific: duplicate username/email |
-| `TierNotFoundError` (extends `ResourceNotFoundError`) | Specific: tier lookup failed |
-| `RateLimitNotFoundError` (extends `ResourceNotFoundError`) | Specific: rate limit row missing |
 | `InsufficientCreditsError` | Quota / credit balance hit zero |
-| `UsageLimitExceededError` | API key usage limit hit |
+| `UsageLimitExceededError` | A usage limit was exceeded |
 
 ```python
 # modules/user/service.py
@@ -99,23 +97,23 @@ For a route that genuinely needs to intercept an exception itself - to recover, 
 something other than the mapping would - `handle_exception()` is still available:
 
 ```python
-from ..common.exceptions import TierNotFoundError
+from ..common.exceptions import UserNotFoundError
 from ..common.utils.error_handler import handle_exception
 
 
-@router.get("/{name}/limits")
-async def get_tier_limits(name: str, db: AsyncSessionDep, tier_service: TierServiceDep) -> dict[str, Any]:
+@router.get("/{username}/display-name")
+async def get_display_name(username: str, db: AsyncSessionDep, user_service: UserServiceDep) -> dict[str, Any]:
     try:
-        tier = await tier_service.get_by_name(name, db)
-    except TierNotFoundError:
-        return DEFAULT_LIMITS          # an unknown tier falls back instead of failing
+        user = await user_service.get_by_username(username, db)
+    except UserNotFoundError:
+        return {"display_name": "Anonymous"}   # an unknown user falls back instead of failing
     except Exception as e:
         http_exception = handle_exception(e)
         if http_exception:
             raise http_exception
         raise
 
-    return tier["limits"]
+    return {"display_name": user["name"]}
 ```
 
 `handle_exception()`:
@@ -132,8 +130,6 @@ The mapping in `modules/common/constants.py`:
 EXCEPTION_MAPPING: dict[type[DomainError], Callable[[str], HTTPException]] = {
     InsufficientCreditsError:  lambda m: HTTPException(status_code=402, detail=m or "Insufficient credits."),
     UserNotFoundError:         lambda m: NotFoundException("User not found."),
-    TierNotFoundError:         lambda m: NotFoundException("The requested tier was not found."),
-    RateLimitNotFoundError:    lambda m: NotFoundException("Rate limit configuration not found."),
     ResourceNotFoundError:     lambda m: NotFoundException("The requested resource was not found."),
     UserExistsError:           lambda m: DuplicateValueException("A user with this email or username already exists."),
     ResourceExistsError:       lambda m: DuplicateValueException("This resource already exists."),
@@ -237,7 +233,7 @@ async def search(
 
     ```python
     class WidgetExceededError(DomainError):
-        """Raised when a user tries to create more widgets than their tier allows."""
+        """Raised when a user tries to create more widgets than their quota allows."""
         pass
     ```
 
@@ -257,7 +253,7 @@ async def search(
 3. **Raise it from your service**:
 
     ```python
-    raise WidgetExceededError("Free tier limited to 10 widgets")
+    raise WidgetExceededError("Limited to 10 widgets per user")
     ```
 
 The global handler (and `handle_exception()`) picks up the new mapping automatically.
@@ -307,50 +303,8 @@ if post["author_id"] != current_user["id"]:
 
 The global handler is already defensive about this — it returns generic messages and writes the real error to logs with a `support_id`. The `support_id` is your handle for grep'ing logs when a user reports an issue.
 
-## Testing Exceptions
-
-The codebase uses `pytest-asyncio` and FastAPI's `TestClient` for route tests:
-
-```python
-@pytest.mark.asyncio
-async def test_user_not_found(client: AsyncClient):
-    resp = await client.get("/api/v1/users/not-a-user")
-    assert resp.status_code == 404
-    body = resp.json()
-    assert body["detail"]
-    assert "support_id" in body
-
-
-@pytest.mark.asyncio
-async def test_duplicate_email(client: AsyncClient):
-    payload = {
-        "name": "Test User",
-        "username": "test1",
-        "email": "test@example.com",
-        "password": "Password123!",
-    }
-    await client.post("/api/v1/users/", json=payload)
-
-    payload["username"] = "test2"  # different username, same email
-    resp = await client.post("/api/v1/users/", json=payload)
-    assert resp.status_code == 409
-```
-
-For service-level tests, just assert the right `DomainError` is raised:
-
-```python
-@pytest.mark.asyncio
-async def test_create_duplicate_user_raises(db_session, existing_user):
-    service = UserService()
-    with pytest.raises(UserExistsError):
-        await service.create(
-            UserCreate(name="...", username=existing_user["username"], email="x@x.com", password="..."),
-            db_session,
-        )
-```
-
 ## What's Next
 
 - **[Versioning](versioning.md)** — Versioning strategy
 - **[CRUD Operations](../database/crud.md)** — How services use CRUD
-- **[Authentication](../authentication/index.md)** — Sessions, OAuth, API keys
+- **[Authentication](../authentication/index.md)** — Sessions and OAuth

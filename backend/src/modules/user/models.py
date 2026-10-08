@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ...infrastructure.database.models import SoftDeleteMixin, TimestampMixin
@@ -10,7 +10,6 @@ from .constants import NAME_MAX_LENGTH, USERNAME_MAX_LENGTH
 
 if TYPE_CHECKING:
     from ..role.models import UserRole
-    from ..tier.models import Tier
 
 
 class User(Base, TimestampMixin, SoftDeleteMixin):
@@ -33,13 +32,6 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
 
     profile_image_url: Mapped[str] = mapped_column(String, default="https://profileimageurl.com")
 
-    tier_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("tiers.id"),
-        index=True,
-        default=None,
-    )
-
     is_superuser: Mapped[bool] = mapped_column(default=False)
 
     google_id: Mapped[str | None] = mapped_column(String(50), unique=True, index=True, default=None)
@@ -49,7 +41,6 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     oauth_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     oauth_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
-    tier: Mapped["Tier | None"] = relationship("Tier", back_populates="users", lazy="selectin", init=False)
     user_roles: Mapped[list["UserRole"]] = relationship(
         "UserRole",
         back_populates="user",

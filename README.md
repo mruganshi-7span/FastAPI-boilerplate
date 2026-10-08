@@ -39,9 +39,9 @@
 
 * Fully async FastAPI + SQLAlchemy 2.0
 * Pydantic v2 models & validation
-* Server-side sessions + CSRF via [crudauth](https://pypi.org/project/crudauth/); OAuth (Google wired); API keys
+* Server-side sessions + CSRF via [crudauth](https://pypi.org/project/crudauth/); OAuth (Google wired)
 * Annotated type aliases for all FastAPI dependencies
-* Rate limiter with per-tier, per-path rules
+* Global rate limiter (one limit from settings, applied to every route)
 * FastCRUD for efficient CRUD & pagination
 * **SQLAdmin**-based admin panel (optional, env-toggled)
 * [Taskiq](https://taskiq-python.github.io/) workers (Redis or RabbitMQ broker)
@@ -64,12 +64,12 @@
 **What you get:**
 
 * **App**: FastAPI [app factory](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/project-structure/), env-aware docs exposure
-* **Auth**: [server-side sessions](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/sessions/), CSRF, [OAuth](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/), [API keys](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/permissions/)
+* **Auth**: [server-side sessions](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/sessions/), CSRF, [OAuth](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/authentication/)
 * **DB**: Postgres + SQLAlchemy 2.0, [Alembic migrations](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/database/migrations/) with prod-confirm gate - local container or serverless ([Neon](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/database/neon/))
 * **CRUD**: [FastCRUD generics](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/database/crud/)
 * **Caching**: [decorator + provider API](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/caching/) (Redis or Memcached)
 * **Queues**: [Taskiq workers](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/background-tasks/) (Redis or RabbitMQ)
-* **Rate limits**: [per-tier + per-path rules](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/rate-limiting/)
+* **Rate limits**: [one global limit from settings, applied to every route](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/rate-limiting/)
 * **Admin**: [SQLAdmin views](https://benavlabs.github.io/FastAPI-boilerplate/user-guide/admin-panel/) (optional, env-toggled)
 * **CLI**: [`bp` tool](https://benavlabs.github.io/FastAPI-boilerplate/cli/) for compose scaffolding, env audits, and plugin extensions
 
@@ -80,7 +80,7 @@ This boilerplate - **Fastro** - is the free, open-source **foundation**: everyth
 | | **Fastro** (this repo · free) | **FastroAI** (paid) |
 |---|:---:|:---:|
 | FastAPI + SQLAlchemy 2.0, Pydantic v2 | ✓ | ✓ |
-| Auth - sessions, OAuth, API keys | ✓ | ✓ **+ JWT** |
+| Auth - sessions, OAuth | ✓ | ✓ **+ JWT** |
 | FastCRUD · SQLAdmin · Alembic | ✓ | ✓ |
 | Caching · rate limiting · Taskiq jobs | ✓ | ✓ |
 | Docker (local / prod / nginx) | ✓ | ✓ |
@@ -156,7 +156,7 @@ docker compose up --build
 ```bash
 cd backend
 uv run alembic upgrade head
-uv run python -m scripts.setup_initial_data   # creates the first admin user + default tier
+uv run python -m scripts.setup_initial_data   # creates the first admin user
 uv run fastapi dev src/interfaces/main.py     # API
 uv run taskiq worker infrastructure.taskiq.worker:default_broker  # in a second terminal
 ```
@@ -175,14 +175,11 @@ uv run bp env validate
 # run Alembic migrations
 cd backend && uv run alembic revision --autogenerate -m "<msg>" && uv run alembic upgrade head
 
-# run tests
-cd backend && uv run pytest
-
 # install bp as a global tool (optional)
 uv tool install --editable ./cli
 ```
 
-More examples (superuser creation, tiers, rate limits, admin usage, plugin authoring) in the [docs](https://benavlabs.github.io/FastAPI-boilerplate/).
+More examples (superuser creation, rate limits, admin usage, plugin authoring) in the [docs](https://benavlabs.github.io/FastAPI-boilerplate/).
 
 ## Sponsors
 

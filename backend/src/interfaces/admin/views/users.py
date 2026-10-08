@@ -26,7 +26,7 @@ class UserAdmin(DataclassModelMixin, ModelView, model=User):
     icon = "fa-solid fa-user"
     category = "Users & Access"
 
-    column_list = [User.id, User.name, User.username, User.email, User.is_superuser, User.tier]
+    column_list = [User.id, User.name, User.username, User.email, User.is_superuser]
     column_details_list = "__all__"
     column_searchable_list = [User.name, User.username, User.email]
     column_sortable_list = [User.id, User.name, User.username, User.email]
@@ -40,8 +40,8 @@ class UserAdmin(DataclassModelMixin, ModelView, model=User):
 
     column_labels = {"hashed_password": "Password"}
 
-    form_create_rules = ["name", "username", "email", "hashed_password", "tier_id", "is_superuser"]
-    form_edit_rules = [*UserAdminUpdate.model_fields.keys(), "tier_id", "is_superuser"]
+    form_create_rules = ["name", "username", "email", "hashed_password", "is_superuser"]
+    form_edit_rules = [*UserAdminUpdate.model_fields.keys(), "is_superuser"]
 
     form_overrides = {"oauth_provider": SelectField}
     form_args = {"oauth_provider": {"choices": OAUTH_PROVIDER_CHOICES}}

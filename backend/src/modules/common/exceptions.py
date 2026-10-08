@@ -43,18 +43,6 @@ class UserExistsError(ResourceExistsError):
     pass
 
 
-class TierNotFoundError(ResourceNotFoundError):
-    """Raised when a tier cannot be found."""
-
-    pass
-
-
-class RateLimitNotFoundError(ResourceNotFoundError):
-    """Raised when a rate limit cannot be found."""
-
-    pass
-
-
 class InsufficientCreditsError(DomainError):
     """Raised when a user doesn't have enough credits for an operation."""
 

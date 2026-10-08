@@ -1,8 +1,8 @@
 # Rate Limiting
 
-The boilerplate ships crudauth's rate limiter with per-tier, per-path limits backed by Redis. API
-routes are protected by default; authenticated requests key by user ID and anonymous requests by
-trusted-proxy-aware client IP.
+The boilerplate ships crudauth's rate limiter with a single global limit backed by Redis (or in-process memory). The
+same limit, read from `DEFAULT_RATE_LIMIT_LIMIT` and `DEFAULT_RATE_LIMIT_PERIOD`, applies to every `/api/v1` route.
+Authenticated requests key by user ID and anonymous requests by trusted-proxy-aware client IP.
 
 !!! tip "Building a full SaaS?"
     Rate limiting is part of the free foundation. **[FastroAI](https://fastro.ai)** bundles it with Stripe payments, entitlements, transactional email, a frontend, and AI agents - all wired together and production-ready. [Ship your SaaS faster →](https://fastro.ai)
@@ -11,13 +11,9 @@ trusted-proxy-aware client IP.
 
 ```text
 backend/src/infrastructure/auth/setup.py
-└── resolve_api_rate_limit()  crudauth per-request resolver
-
-backend/src/modules/rate_limit/
-├── models.py          RateLimit (tier_id, path, limit, period)
-├── routes.py          GET / GET-by-name / PATCH / DELETE on /api/v1/rate-limits/
-├── crud.py / service.py
-└── schemas.py
+└── resolve_api_rate_limit()  crudauth per-request resolver (one global limit)
+    api_rate_limit_key()      names the counter (the caller)
+    api_rate_limit_dependency  router-level dependency on the whole /api/v1 router
 ```
 
 The configured crudauth backend is initialized with the auth singleton in the app's lifespan.
@@ -25,16 +21,16 @@ The configured crudauth backend is initialized with the auth singleton in the ap
 ## How a Request Flows Through It
 
 1. **The router-level crudauth dependency runs** for each API request.
-2. **`resolve_api_rate_limit`** looks up the user's tier and matching path row from the database.
-3. **`api_rate_limit_key`** names the budget: the caller (user ID when signed in, client IP otherwise) plus the request path, so every path has its own counter.
-4. **crudauth's limiter** atomically increments the counter for the current window and returns `(count, is_limited)`. Windows are `period` seconds long and aligned to the clock, and each window's key expires on its own.
+2. **`resolve_api_rate_limit`** returns the global limit built from `DEFAULT_RATE_LIMIT_LIMIT` and `DEFAULT_RATE_LIMIT_PERIOD` (or `None` when `RATE_LIMITER_ENABLED=false`).
+3. **`api_rate_limit_key`** names the budget: the caller (user ID when signed in, client IP otherwise). Every route shares that one counter.
+4. **crudauth's limiter** atomically increments the counter for the current window and returns `(count, is_limited)`. Windows are `DEFAULT_RATE_LIMIT_PERIOD` seconds long and aligned to the clock, and each window's key expires on its own.
 5. **If `is_limited`**, raises a 429 with `Retry-After`. Otherwise the limiter attaches `X-RateLimit-Limit` and `X-RateLimit-Remaining` to the response. A request refused afterwards (a 401, a 404, a 422) still counts, and its response carries the headers too.
 
 The key shape in Redis, ending in the start of the current window:
 
 ```text
-crudauth:rl:ratelimit:api:user:{user_id}:{path}:{window_start}
-crudauth:rl:ratelimit:api:ip:{client_ip}:{path}:{window_start}
+crudauth:rl:ratelimit:api:user:{user_id}:{window_start}
+crudauth:rl:ratelimit:api:ip:{client_ip}:{window_start}
 ```
 
 ## Custom Enforcement
@@ -72,7 +68,7 @@ RATE_LIMITER_ENABLED=true
 # holds for a single worker. The memcached limiter was removed; that value fails at startup.
 RATE_LIMITER_BACKEND=redis
 
-# Defaults applied when the user has no tier or no matching rate-limit row
+# The single global limit applied to every counted request
 DEFAULT_RATE_LIMIT_LIMIT=100
 DEFAULT_RATE_LIMIT_PERIOD=60          # seconds — 100/60s by default
 
@@ -85,102 +81,21 @@ RATE_LIMITER_REDIS_CONNECT_TIMEOUT=5
 RATE_LIMITER_REDIS_POOL_SIZE=10
 ```
 
-When `RATE_LIMITER_ENABLED=false`, the router-level dependency is a no-op. This is useful in tests
-and for isolating performance issues. The login lockout still counts on `RATE_LIMITER_BACKEND`, and
+When `RATE_LIMITER_ENABLED=false`, the router-level dependency is a no-op. This is useful for
+isolating performance issues. The login lockout still counts on `RATE_LIMITER_BACKEND`, and
 fails closed: with that backend unreachable, logins are refused rather than left unthrottled.
 
-## User-Tier vs IP-Based Limits
+## User vs IP-Based Keys
 
 `api_rate_limit_key` uses the request principal when authentication is present and falls back to
-the client IP using `TRUSTED_PROXY_HOPS`, adding the path either way. The resolver checks the current path against the user's
-tier and falls back to the configured default.
+the client IP using `TRUSTED_PROXY_HOPS`. Every caller gets the same limit and one counter shared across all routes.
 
-## Path Matching
+## One Limit Everywhere
 
-Rate-limit rows are matched against the request path. Store the exact API path in the database,
-including its `/api/v1` prefix:
-
-```text
-/api/v1/users      # matches only that route
-/api/v1/users/42   # a per-resource path gets its own counter
-```
-
-Note: paths with path parameters (`/users/42`) mean **each individual resource ID gets its own
-counter**, and a limit row must name the concrete path to apply to it. That's almost always what
-you want: a single hot resource can't rate-limit unrelated reads.
-
-## Managing Rate-Limit Rules
-
-The `RateLimit` model:
-
-```python
-class RateLimit(Base, TimestampMixin, SoftDeleteMixin):
-    __tablename__ = "rate_limits"
-
-    id: int
-    tier_id: int        # FK to tiers.id
-    name: str           # unique — used as the URL path on /rate-limits/{name}
-    path: str           # exact request path the rule applies to
-    limit: int          # max requests per period
-    period: int         # seconds
-```
-
-### What the API exposes
-
-| Method | Path                         | Auth        | Notes                                    |
-|--------|------------------------------|-------------|------------------------------------------|
-| GET    | `/api/v1/rate-limits/`       | Superuser   | Paginated list of all rate-limit rules   |
-| GET    | `/api/v1/rate-limits/{name}` | Superuser   | Get a rule by name                       |
-| PATCH  | `/api/v1/rate-limits/{name}` | Superuser   | Update an existing rule                  |
-| DELETE | `/api/v1/rate-limits/{name}` | Superuser   | Delete a rule                            |
-
-There's **no POST endpoint** for creating rate-limit rules. To seed initial rules, you have three options:
-
-### Option 1: SQL / Migration
-
-Add an Alembic migration that inserts the rows:
-
-```python
-# alembic/versions/xxxx_seed_rate_limits.py
-def upgrade():
-    op.execute("""
-        INSERT INTO rate_limits (tier_id, name, path, "limit", period, created_at)
-        VALUES
-            (1, 'free_widgets_create', '/api/v1/widgets', 10, 60, NOW()),
-            (2, 'pro_widgets_create',  '/api/v1/widgets', 100, 60, NOW())
-    """)
-```
-
-### Option 2: Custom Seed Script
-
-Add a one-off in `backend/scripts/`:
-
-```python
-# backend/scripts/setup_rate_limits.py
-import asyncio
-
-from src.infrastructure.database.session import local_session
-from src.modules.rate_limit.crud import crud_rate_limits
-
-
-async def main():
-    async with local_session() as db:
-        await crud_rate_limits.create(db=db, object={
-            "tier_id": 1, "name": "free_widgets_create",
-            "path": "/api/v1/widgets", "limit": 10, "period": 60,
-        })
-        await db.commit()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-Run with `uv run python -m scripts.setup_rate_limits` (from `backend/`).
-
-### Option 3: Add a SQLAdmin View
-
-Mirror `UserAdmin` and `TierAdmin` to add a `RateLimitAdmin` view — see [Admin Panel → Adding Models](../admin-panel/adding-models.md). This gives you a UI for creating, editing, and deleting rules.
+There is no per-path or per-user configuration: the limit value is the same for every route and every caller, and
+it comes only from `DEFAULT_RATE_LIMIT_LIMIT` and `DEFAULT_RATE_LIMIT_PERIOD`. Requests to any `/api/v1` route (including
+`/auth`) count against the caller's single budget. To give a route a different budget, use `auth.rate_limit(...)`
+directly (see Custom Enforcement).
 
 ## Response Headers
 
@@ -188,7 +103,7 @@ Every response to a counted request carries these, errors included:
 
 | Header                  | Meaning                                          |
 |-------------------------|--------------------------------------------------|
-| `X-RateLimit-Limit`     | The configured limit for this caller × path      |
+| `X-RateLimit-Limit`     | The configured limit for this caller           |
 | `X-RateLimit-Remaining` | How many requests are left in the current window |
 
 A 429 also carries `Retry-After`, the seconds until the window resets. A request refused after
@@ -219,11 +134,11 @@ IP-based rate limits are easy to bypass with NAT / proxies / IPv6 rotation. They
 
 ## Troubleshooting
 
-### "My limit is not matching"
+### "My limit is not being applied"
 
 - Confirm `RATE_LIMITER_ENABLED=true`
 - Confirm the auth singleton initialized cleanly at startup
-- Confirm the `path` column on the rule matches the exact request path, including `/api/v1`
+- Confirm the route is under `/api/v1` (the limit is applied to that whole router)
 
 ### "All requests look anonymous even though users are logged in"
 
@@ -242,12 +157,8 @@ closed). Fix the Redis connection, or take the limiter out of the path entirely 
 | Component             | Location                                                  |
 |-----------------------|-----------------------------------------------------------|
 | Resolver + dependency | `backend/src/infrastructure/auth/setup.py`                |
-| RateLimit model       | `backend/src/modules/rate_limit/models.py`                |
-| Rate-limit routes     | `backend/src/modules/rate_limit/routes.py`                |
 | Settings              | `backend/src/infrastructure/config/settings.py` (`RateLimiterSettings`) |
 
 ## Next Steps
 
-- **[Tiers](../authentication/permissions.md#tier-based-authorization)** — Setting up user tiers
-- **[Admin Panel → Adding Models](../admin-panel/adding-models.md)** — Adding a `RateLimitAdmin` view
 - **[Caching → Cache Strategies](../caching/cache-strategies.md)** — Patterns that share the same Redis-as-state mindset

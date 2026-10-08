@@ -38,33 +38,12 @@ dependencies = [
 dev = [
     "mypy>=1.14.1",
     "ruff>=0.9.4",
-    "pytest>=8.3.5",
-    "pytest-asyncio>=0.25.3",
-    "pytest-mock>=3.14.0",
-    "testcontainers[postgres]>=4.10.0",
-    "pytest-xdist[psutil]>=3.8.0",
     "taskiq[reload]>=0.11.20",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["*"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_functions = ["test_*"]
-python_classes = ["Test*"]
-asyncio_mode = "auto"
-addopts = ["-v", "--strict-markers", "--tb=short", "--disable-warnings"]
-env = ["ENVIRONMENT=pytest", "PYTEST_CURRENT_TEST=true"]
-markers = [
-    "unit: Unit tests that don't require external dependencies",
-    "integration: Integration tests that may require external services",
-    "asyncio: Tests that use asyncio",
-    "slow: marks tests as slow running",
-]
 
 [tool.mypy]
 python_version = "3.11"
