@@ -16,6 +16,9 @@ from ..common.exceptions import (
     UserNotFoundError,
     ValidationError,
 )
+from ..media.enums import MediableType, MediaTag
+from ..media.schemas import MediaConfirmRequest
+from ..media.service import MediaService
 from .crud import crud_users
 from .permissions import UserPermission
 from .schemas import (
@@ -39,6 +42,78 @@ class UserService:
     and permission handling. It provides comprehensive user management
     functionality with support for soft deletion.
     """
+
+    def __init__(self, media_service: MediaService | None = None) -> None:
+        self.media_service = media_service or MediaService()
+
+    async def set_profile_image(self, user_id: int, payload: MediaConfirmRequest, db: AsyncSession) -> None:
+        """Confirm an uploaded file and make it the user's profile image.
+
+        The key must come from ``POST /media/upload-url`` with tag ``profile``,
+        requested by this same user. Any previous profile image is replaced and
+        its file deleted from S3 once the change is committed.
+
+        Args:
+            user_id: The user whose profile image to set.
+            payload: The key of the uploaded file.
+            db: Database session for the operation.
+
+        Raises:
+            InvalidMediaError: If the key isn't this user's, nothing was uploaded, or the file fails validation.
+            ResourceExistsError: If the upload was already confirmed.
+            StorageUnavailableError: If S3 can't be reached.
+        """
+        media = await self.media_service.confirm_upload(db, key=payload.key, tag=MediaTag.PROFILE, owner_id=user_id)
+        replaced_keys = await self.media_service.attach(
+            db, media=media, mediable_type=MediableType.USER, mediable_id=user_id, tag=MediaTag.PROFILE
+        )
+        await db.commit()
+        await self.media_service.delete_objects(replaced_keys)
+
+        logger.info(
+            "Profile image updated",
+            extra={"user_id": user_id, "media_id": media.id, "replaced": len(replaced_keys)},
+        )
+
+    async def remove_profile_image(self, user_id: int, db: AsyncSession) -> bool:
+        """Remove the user's profile image, row and file.
+
+        Args:
+            user_id: The user whose profile image to remove.
+            db: Database session for the operation.
+
+        Returns:
+            True if an image was removed, False if the user had none.
+        """
+        removed_keys = await self.media_service.detach(
+            db, mediable_type=MediableType.USER, mediable_id=user_id, tag=MediaTag.PROFILE
+        )
+        await db.commit()
+        await self.media_service.delete_objects(removed_keys)
+        return bool(removed_keys)
+
+    async def with_profile_images(self, users: list[dict[str, Any]], db: AsyncSession) -> list[dict[str, Any]]:
+        """Add ``profile_image`` (with a presigned URL) to each user dict, in one query.
+
+        Args:
+            users: User dicts that include ``id``.
+            db: Database session for the operation.
+
+        Returns:
+            New dicts with ``profile_image`` set to the media dict or None.
+        """
+        images = await self.media_service.get_attached(
+            db,
+            mediable_type=MediableType.USER,
+            mediable_ids=[user["id"] for user in users],
+            tag=MediaTag.PROFILE,
+        )
+        return [{**user, "profile_image": images.get(user["id"])} for user in users]
+
+    async def with_profile_image(self, user: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
+        """Add ``profile_image`` (with a presigned URL) to one user dict."""
+        [enriched] = await self.with_profile_images([user], db)
+        return enriched
 
     async def create(self, user: UserCreate, db: AsyncSession) -> dict[str, Any]:
         """Create a new user account.
@@ -494,6 +569,9 @@ class UserService:
             existing_user = await crud_users.get(db=db, schema_to_select=UserRead, id=user_id)
             if not existing_user:
                 raise UserNotFoundError(f"User with ID {user_id} not found")
+
+            # The uploaded profile picture is personal data: remove the row and the S3 file.
+            await self.remove_profile_image(user_id, db)
 
             timestamp = int(datetime.now(UTC).timestamp())
 

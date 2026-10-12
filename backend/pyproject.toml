@@ -15,6 +15,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "alembic>=1.16.4",
     "asyncpg>=0.30.0",
+    "boto3>=1.40.0",
     "crudauth[all]>=0.7.1,<0.8.0",
     "faker>=37.1.0",
     "fastapi[standard]>=0.115.8",
@@ -80,6 +81,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "wtforms.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["boto3", "botocore.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

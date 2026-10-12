@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from ...infrastructure.auth.password_policy import password_policy
 from ..common.schemas import PersistentDeletion, TimestampSchema
+from ..media.schemas import MediaRead
 from .constants import (
     NAME_MAX_LENGTH,
     USERNAME_MAX_LENGTH,
@@ -54,6 +55,10 @@ class UserProfileRead(BaseModel):
     name: Annotated[str, Field(examples=["User Userson"])]
     username: Annotated[str, Field(examples=["userson"])]
     profile_image_url: str
+    profile_image: Annotated[
+        MediaRead | None,
+        Field(default=None, description="Uploaded profile picture with a presigned download URL"),
+    ]
 
 
 class UserRead(BaseModel):
@@ -67,6 +72,10 @@ class UserRead(BaseModel):
     ]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     profile_image_url: str
+    profile_image: Annotated[
+        MediaRead | None,
+        Field(default=None, description="Uploaded profile picture with a presigned download URL"),
+    ]
     is_deleted: bool = False
     is_superuser: bool = False
     email_verified: bool = False

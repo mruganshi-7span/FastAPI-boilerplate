@@ -106,6 +106,7 @@ name = "FastAPI on PyPI"
         { "Overview" = "user-guide/api/index.md" },
         { "Endpoints" = "user-guide/api/endpoints.md" },
         { "Pagination" = "user-guide/api/pagination.md" },
+        { "Including Related Resources" = "user-guide/api/includes.md" },
         { "Exceptions" = "user-guide/api/exceptions.md" },
         { "Versioning" = "user-guide/api/versioning.md" },
     ] },

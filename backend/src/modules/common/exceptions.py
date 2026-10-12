@@ -59,3 +59,19 @@ class PersistenceError(DomainError):
     """Raised when a write the caller is entitled to make doesn't come back from the database."""
 
     pass
+
+
+class InvalidMediaError(ValidationError):
+    """Raised when an upload request or an uploaded file fails media validation.
+
+    Its message is written for the client (unsupported type, file too large,
+    nothing uploaded), so it is passed through in the response.
+    """
+
+    pass
+
+
+class StorageUnavailableError(DomainError):
+    """Raised when the object store is not configured or can't be reached."""
+
+    pass

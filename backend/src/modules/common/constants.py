@@ -13,10 +13,12 @@ from ...infrastructure.auth.http_exceptions import (
 from .exceptions import (
     DomainError,
     InsufficientCreditsError,
+    InvalidMediaError,
     PermissionDeniedError,
     PersistenceError,
     ResourceExistsError,
     ResourceNotFoundError,
+    StorageUnavailableError,
     UsageLimitExceededError,
     UserExistsError,
     UserNotFoundError,
@@ -41,4 +43,8 @@ EXCEPTION_MAPPING: dict[type[DomainError], Callable[[str], HTTPException]] = {
     ValidationError: lambda message: UnprocessableEntityException(detail="The request could not be processed."),
     PermissionDeniedError: lambda message: ForbiddenException(detail="You don't have permission for this action."),
     PersistenceError: lambda message: HTTPException(status_code=500, detail=GENERIC_ERROR_MESSAGE),
+    InvalidMediaError: lambda message: UnprocessableEntityException(detail=message or "Invalid media."),
+    StorageUnavailableError: lambda message: HTTPException(
+        status_code=503, detail="File storage is unavailable. Please try again later."
+    ),
 }

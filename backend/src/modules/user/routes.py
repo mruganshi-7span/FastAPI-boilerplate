@@ -10,6 +10,7 @@ from ...infrastructure.dependencies import (
     CurrentSuperUserDep,
     CurrentUserDep,
 )
+from ..media.schemas import MediaConfirmRequest
 from .dependencies import UserServiceDep
 from .schemas import (
     UserCreate,
@@ -80,6 +81,7 @@ async def get_users(
 ) -> dict[str, Any]:
     """Get paginated list of users."""
     users_data = await user_service.get_paginated(skip=compute_offset(page, items_per_page), limit=items_per_page, db=db)
+    users_data["data"] = await user_service.with_profile_images(list(users_data["data"]), db)
 
     return paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
 
@@ -104,9 +106,68 @@ async def get_users(
 )
 async def get_current_user_profile(
     current_user: CurrentUserDep,
+    db: AsyncSessionDep,
+    user_service: UserServiceDep,
 ) -> dict[str, Any]:
     """Get current authenticated user's profile."""
-    return current_user
+    return await user_service.with_profile_image(current_user, db)
+
+
+@router.put(
+    "/me/profile-image",
+    response_model=UserRead,
+    summary="Set Current User Profile Image",
+    description="""
+            Sets the current user's profile image from a file already uploaded to S3.
+
+            Flow:
+            1. `POST /api/v1/media/upload-url` with `{"content_type": "image/png", "tag": "profile"}`
+            2. `PUT` the image bytes to the returned `upload_url` with the returned `headers`
+            3. Call this endpoint with the returned `key`
+
+            The file's size and type are read from S3 and validated (images only, up to
+            `MEDIA_MAX_UPLOAD_SIZE_BYTES`). Any previous profile image is replaced and its
+            file deleted. The response carries `profile_image.url`, a presigned download URL.
+            """,
+    responses={
+        200: {"description": "Profile image set"},
+        401: {"description": "Not authenticated"},
+        409: {"description": "This upload was already confirmed"},
+        422: {"description": "Unknown key, nothing uploaded, or file type/size not allowed"},
+        503: {"description": "File storage is unavailable"},
+    },
+    response_description="The current user's profile with the new profile image",
+)
+async def set_current_user_profile_image(
+    payload: MediaConfirmRequest,
+    current_user: CurrentUserDep,
+    db: AsyncSessionDep,
+    user_service: UserServiceDep,
+) -> dict[str, Any]:
+    """Confirm an uploaded file as the current user's profile image."""
+    await user_service.set_profile_image(current_user["id"], payload, db)
+    return await user_service.with_profile_image(current_user, db)
+
+
+@router.delete(
+    "/me/profile-image",
+    summary="Remove Current User Profile Image",
+    description="""
+            Removes the current user's uploaded profile image and deletes its file from S3.
+
+            Succeeds even if no image is set.
+            """,
+    responses={200: {"description": "Profile image removed"}, 401: {"description": "Not authenticated"}},
+    response_description="Success confirmation message",
+)
+async def remove_current_user_profile_image(
+    current_user: CurrentUserDep,
+    db: AsyncSessionDep,
+    user_service: UserServiceDep,
+) -> dict[str, str]:
+    """Remove the current user's profile image."""
+    removed = await user_service.remove_profile_image(current_user["id"], db)
+    return {"message": "Profile image removed" if removed else "No profile image to remove"}
 
 
 @router.get(
@@ -133,7 +194,7 @@ async def get_user_by_username(
 ) -> dict[str, Any]:
     """Get user profile by username."""
     user = await user_service.get_by_username(username, db)
-    return user
+    return await user_service.with_profile_image(user, db)
 
 
 @router.get(
@@ -163,7 +224,8 @@ async def get_active_and_inactive_user_by_username(
     user_service: UserServiceDep,
 ) -> dict[str, Any]:
     """Get active and inactive profile by username."""
-    return await user_service.get_active_and_inactive_by_username(username, db)
+    user = await user_service.get_active_and_inactive_by_username(username, db)
+    return await user_service.with_profile_image(user, db)
 
 
 @router.patch(

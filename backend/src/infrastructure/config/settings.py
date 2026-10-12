@@ -373,6 +373,37 @@ class TaskiqSettings(BaseSettings):
             raise ValueError(f"Unsupported broker type: {self.TASKIQ_BROKER_TYPE}")
 
 
+class StorageSettings(BaseSettings):
+    """S3 (or S3-compatible) object storage settings for media uploads.
+
+    Files never pass through the API: clients PUT them straight to S3 with a
+    short-lived presigned URL, and reads get a fresh presigned GET URL each time.
+
+    Attributes:
+        AWS_ACCESS_KEY_ID: Access key. Leave blank to use boto3's default credential chain (IAM role, ~/.aws).
+        AWS_SECRET_ACCESS_KEY: Secret key. Leave blank to use boto3's default credential chain.
+        AWS_REGION: Bucket region.
+        AWS_ROOT: Optional prefix applied to every object key (e.g. "dev", "prod").
+        AWS_BUCKET: Default bucket for media.
+        AWS_BUCKET_PRIVATE: Bucket for private media.
+        S3_ENDPOINT_URL: Only for S3-compatible services (MinIO, LocalStack). Blank for AWS S3.
+        PRESIGNED_UPLOAD_URL_EXPIRE_SECONDS: Lifetime of a presigned PUT URL.
+        PRESIGNED_DOWNLOAD_URL_EXPIRE_SECONDS: Lifetime of a presigned GET URL.
+        MEDIA_MAX_UPLOAD_SIZE_BYTES: Largest object accepted when an upload is confirmed.
+    """
+
+    AWS_ACCESS_KEY_ID: str = config("AWS_ACCESS_KEY_ID", default="")
+    AWS_SECRET_ACCESS_KEY: str = config("AWS_SECRET_ACCESS_KEY", default="")
+    AWS_REGION: str = config("AWS_REGION", default="us-east-1")
+    AWS_ROOT: str = config("AWS_ROOT", default="")
+    AWS_BUCKET: str = config("AWS_BUCKET", default="")
+    AWS_BUCKET_PRIVATE: str = config("AWS_BUCKET_PRIVATE", default="")
+    S3_ENDPOINT_URL: str = config("S3_ENDPOINT_URL", default="")
+    PRESIGNED_UPLOAD_URL_EXPIRE_SECONDS: int = config("PRESIGNED_UPLOAD_URL_EXPIRE_SECONDS", default=300, cast=int)
+    PRESIGNED_DOWNLOAD_URL_EXPIRE_SECONDS: int = config("PRESIGNED_DOWNLOAD_URL_EXPIRE_SECONDS", default=3600, cast=int)
+    MEDIA_MAX_UPLOAD_SIZE_BYTES: int = config("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=5 * 1024 * 1024, cast=int)
+
+
 class Settings(
     EnvironmentSettings,
     DatabaseSettings,
@@ -389,6 +420,7 @@ class Settings(
     SecuritySettings,
     LoggingSettings,
     TaskiqSettings,
+    StorageSettings,
 ):
     """Main settings class that combines all setting categories."""
 
