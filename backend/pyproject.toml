@@ -12,6 +12,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiomcache>=0.8.2",
+    "aiosmtplib>=5.1.3,<6.0.0",
     "aiosqlite>=0.21.0",
     "alembic>=1.16.4",
     "asyncpg>=0.30.0",

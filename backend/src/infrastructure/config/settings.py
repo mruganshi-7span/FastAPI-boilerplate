@@ -404,6 +404,32 @@ class StorageSettings(BaseSettings):
     MEDIA_MAX_UPLOAD_SIZE_BYTES: int = config("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=5 * 1024 * 1024, cast=int)
 
 
+class EmailSettings(BaseSettings):
+    """SMTP settings for transactional email (e.g. the welcome email).
+
+    Emails are queued as taskiq jobs and sent by the worker, so the worker must be
+    running for anything to go out. Point these at any SMTP provider (Mailtrap,
+    SES, Postmark, Gmail...).
+
+    Attributes:
+        SMTP_HOST: SMTP server hostname.
+        SMTP_PORT: SMTP server port (587 for STARTTLS).
+        SMTP_USERNAME: SMTP login. Leave blank for a server without auth.
+        SMTP_PASSWORD: SMTP password. Leave blank for a server without auth.
+        SMTP_USE_TLS: Upgrade the connection with STARTTLS.
+        MAIL_FROM_ADDRESS: Sender address.
+        MAIL_FROM_NAME: Sender display name.
+    """
+
+    SMTP_HOST: str = config("SMTP_HOST", default="localhost")
+    SMTP_PORT: int = config("SMTP_PORT", default=587, cast=int)
+    SMTP_USERNAME: str = config("SMTP_USERNAME", default="")
+    SMTP_PASSWORD: str = config("SMTP_PASSWORD", default="")
+    SMTP_USE_TLS: bool = config("SMTP_USE_TLS", default=True, cast=bool)
+    MAIL_FROM_ADDRESS: str = config("MAIL_FROM_ADDRESS", default="no-reply@example.com")
+    MAIL_FROM_NAME: str = config("MAIL_FROM_NAME", default="FastAPI Boilerplate")
+
+
 class Settings(
     EnvironmentSettings,
     DatabaseSettings,
@@ -421,6 +447,7 @@ class Settings(
     LoggingSettings,
     TaskiqSettings,
     StorageSettings,
+    EmailSettings,
 ):
     """Main settings class that combines all setting categories."""
 

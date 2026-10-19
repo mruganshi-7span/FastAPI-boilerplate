@@ -1,0 +1,8 @@
+Hi {{ name }},
+
+Welcome to {{ app_name }}! Your account has been created and you're all set to get started.
+
+If you have any questions, just reply to this email and we'll be happy to help.
+
+Thanks,
+The {{ app_name }} team

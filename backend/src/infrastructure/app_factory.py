@@ -25,12 +25,14 @@ from .config.settings import (
     EnvironmentSettings,
     RateLimiterSettings,
     Settings,
+    TaskiqSettings,
     get_settings,
 )
 from .database.initialize import close_database
 from .database.session import create_tables
 from .middleware import ClientCacheMiddleware, SecurityHeadersMiddleware
 from .redis import cache_redis_client, rate_limiter_redis_client
+from .taskiq.brokers import default_broker
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,11 @@ def lifespan_factory(
 
             if not (isinstance(settings, CacheSettings) and settings.CACHE_ENABLED and settings.CACHE_BACKEND == "redis"):
                 teardown.push_async_callback(cache_redis_client.aclose)
+
+            if isinstance(settings, TaskiqSettings) and settings.TASKIQ_ENABLED:
+                # The API only enqueues tasks (e.g. the welcome email); the worker runs them.
+                await default_broker.startup()
+                teardown.push_async_callback(default_broker.shutdown)
 
             teardown.push_async_callback(auth.shutdown)
             await auth.initialize()

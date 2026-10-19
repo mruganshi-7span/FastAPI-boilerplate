@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Taskiq worker entry point."""
 
+from ..email import tasks as email_tasks  # noqa: F401  (registers the email tasks with the broker)
 from .app import configure_broker_lifecycle
 from .brokers import default_broker
 

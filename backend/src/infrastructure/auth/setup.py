@@ -8,8 +8,9 @@ connections via ``auth.initialize()`` / ``auth.shutdown()`` (see ``app_factory``
 Wires a single session transport (sessions + CSRF + escalating login lockout)
 over the configured session backend, the rate limiter behind both the login
 lockout and the global API limit, the password policy, and Google OAuth when
-it's configured. Email recovery and sudo are intentionally not configured - the
-boilerplate has no email pipeline, and no route gates on sudo.
+it's configured. Email recovery and sudo are intentionally not configured; the
+welcome email is sent from ``UserService.create``, not from a crudauth hook, and
+no route gates on sudo.
 """
 
 from typing import Any
