@@ -20,8 +20,6 @@ Defined in `backend/src/modules/common/exceptions.py`. Services raise these — 
 | `PermissionDeniedError` | The current user can't perform this action |
 | `UserNotFoundError` (extends `ResourceNotFoundError`) | Specific: user lookup failed |
 | `UserExistsError` (extends `ResourceExistsError`) | Specific: duplicate username/email |
-| `InsufficientCreditsError` | Quota / credit balance hit zero |
-| `UsageLimitExceededError` | A usage limit was exceeded |
 
 ```python
 # modules/user/service.py
@@ -128,18 +126,16 @@ The mapping in `modules/common/constants.py`:
 
 ```python
 EXCEPTION_MAPPING: dict[type[DomainError], Callable[[str], HTTPException]] = {
-    InsufficientCreditsError:  lambda m: HTTPException(status_code=402, detail=m or "Insufficient credits."),
     UserNotFoundError:         lambda m: NotFoundException("User not found."),
     ResourceNotFoundError:     lambda m: NotFoundException("The requested resource was not found."),
     UserExistsError:           lambda m: DuplicateValueException("A user with this email or username already exists."),
     ResourceExistsError:       lambda m: DuplicateValueException("This resource already exists."),
-    UsageLimitExceededError:   lambda m: RateLimitException("Usage limit exceeded."),
     ValidationError:           lambda m: UnprocessableEntityException("The request could not be processed."),
     PermissionDeniedError:     lambda m: ForbiddenException("You don't have permission for this action."),
 }
 ```
 
-Notice the messages **don't echo the raised exception's message** — every entry but `InsufficientCreditsError` answers with a fixed string, so a message naming a row the caller isn't entitled to know about can't reach them. The raised message goes to the logs, with the `support_id` from the response to correlate on. `map_exception` walks the exception's MRO, so a subclass gets its own message rather than its base's.
+Notice the messages **don't echo the raised exception's message** — every entry (except `InvalidMediaError`, whose message is written for the client) answers with a fixed string, so a message naming a row the caller isn't entitled to know about can't reach them. The raised message goes to the logs, with the `support_id` from the response to correlate on. `map_exception` walks the exception's MRO, so a subclass gets its own message rather than its base's.
 
 ## Response Format
 
@@ -157,17 +153,6 @@ Notice the messages **don't echo the raised exception's message** — every entr
 ```json
 {
   "detail": "Invalid request. Please check your input and try again.",
-  "support_id": "a1b2c3d4"
-}
-```
-
-### `InsufficientCreditsError` (402) — exception
-
-This is the one case where the original error message is preserved, because the frontend needs the credit info for upgrade prompts:
-
-```json
-{
-  "detail": "Need 100 more credits to complete this operation",
   "support_id": "a1b2c3d4"
 }
 ```

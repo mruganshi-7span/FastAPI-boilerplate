@@ -2,9 +2,17 @@
 
 
 class DomainError(Exception):
-    """Base class for all domain-specific errors."""
+    """Base class for all domain-specific errors.
 
-    pass
+    ``message`` is for the logs only; the client gets the message ``EXCEPTION_MAPPING``
+    defines for the exception type. ``errors`` is the opt-in exception to that rule:
+    a ``{field: [messages]}`` map that is sent to the client as-is, so every string in
+    it must be safe to show to any caller.
+    """
+
+    def __init__(self, message: str = "", errors: dict[str, list[str]] | None = None) -> None:
+        super().__init__(message)
+        self.errors: dict[str, list[str]] = errors or {}
 
 
 class ResourceNotFoundError(DomainError):
@@ -39,24 +47,6 @@ class UserNotFoundError(ResourceNotFoundError):
 
 class UserExistsError(ResourceExistsError):
     """Raised when attempting to create a user with an existing email or username."""
-
-    pass
-
-
-class InsufficientCreditsError(DomainError):
-    """Raised when a user doesn't have enough credits for an operation."""
-
-    pass
-
-
-class UsageLimitExceededError(DomainError):
-    """Raised when a user exceeds their usage limits."""
-
-    pass
-
-
-class PersistenceError(DomainError):
-    """Raised when a write the caller is entitled to make doesn't come back from the database."""
 
     pass
 
