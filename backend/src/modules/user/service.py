@@ -11,7 +11,6 @@ from ...infrastructure.auth.setup import auth
 from ...infrastructure.logging import get_logger
 from ..common.exceptions import (
     PermissionDeniedError,
-    PersistenceError,
     UserExistsError,
     UserNotFoundError,
     ValidationError,
