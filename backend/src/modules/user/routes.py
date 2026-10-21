@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastcrud import PaginatedListResponse, compute_offset, paginated_response
 
 from ...infrastructure.auth.dependencies import load_permissions, require_permissions
@@ -10,8 +10,10 @@ from ...infrastructure.dependencies import (
     CurrentSuperUserDep,
     CurrentUserDep,
 )
+from ..common.includes import attach_includes, include_param
 from ..media.schemas import MediaConfirmRequest
 from .dependencies import UserServiceDep
+from .models import User
 from .schemas import (
     UserCreate,
     UserProfileRead,
@@ -20,6 +22,9 @@ from .schemas import (
 )
 
 router = APIRouter(tags=["Users"])
+
+# Reads ?include=... for the user list; the allowed names come from User.__includable__.
+user_includes = include_param(User)
 
 
 @router.post(
@@ -55,13 +60,15 @@ async def create_user(
 @router.get(
     "/",
     response_model=PaginatedListResponse[UserRead],
+    # Leave out fields nobody set, so `products` only appears when ?include=products was sent.
+    response_model_exclude_unset=True,
     summary="List All Users",
     description="""
            Retrieves a paginated list of all users in the system.
 
            Requires the `user.read` permission, which a role grants; superusers
            always pass. The results include basic profile information for each
-           user.
+           user. Send `?include=products` to also get each user's products.
 
            For security reasons, sensitive information like passwords is never included
            in the response.
@@ -76,12 +83,14 @@ async def create_user(
 async def get_users(
     db: AsyncSessionDep,
     user_service: UserServiceDep,
+    includes: Annotated[list[str], Depends(user_includes)],
     page: int = 1,
     items_per_page: int = 10,
 ) -> dict[str, Any]:
     """Get paginated list of users."""
     users_data = await user_service.get_paginated(skip=compute_offset(page, items_per_page), limit=items_per_page, db=db)
     users_data["data"] = await user_service.with_profile_images(list(users_data["data"]), db)
+    users_data["data"] = await attach_includes(db, User, users_data["data"], includes)
 
     return paginated_response(crud_data=users_data, page=page, items_per_page=items_per_page)
 
@@ -173,6 +182,8 @@ async def remove_current_user_profile_image(
 @router.get(
     "/{username}",
     response_model=UserProfileRead,
+    # Leave out fields nobody set, so `products` only appears when ?include=products was sent.
+    response_model_exclude_unset=True,
     summary="Get User Profile by Username",
     description="""
             Retrieves a user's public profile by their unique username.
@@ -180,6 +191,7 @@ async def remove_current_user_profile_image(
             Any signed-in user can look up any other active user. The response carries
             the display fields only - no email address - so the lookup can't be used to
             collect addresses. Read your own full record from `/users/me`.
+            Send `?include=products` to also get the user's products.
 
             Note that usernames are case-sensitive in lookup operations.
             """,
@@ -191,10 +203,13 @@ async def get_user_by_username(
     _: CurrentUserDep,
     db: AsyncSessionDep,
     user_service: UserServiceDep,
+    includes: Annotated[list[str], Depends(user_includes)],
 ) -> dict[str, Any]:
     """Get user profile by username."""
     user = await user_service.get_by_username(username, db)
-    return await user_service.with_profile_image(user, db)
+    user = await user_service.with_profile_image(user, db)
+    [user] = await attach_includes(db, User, [user], includes)
+    return user
 
 
 @router.get(

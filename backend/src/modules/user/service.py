@@ -8,6 +8,7 @@ from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.auth.setup import auth
+from ...infrastructure.email.tasks import send_welcome_email_task
 from ...infrastructure.logging import get_logger
 from ..common.exceptions import (
     PermissionDeniedError,
@@ -151,11 +152,11 @@ class UserService:
         await auth.validate_password(user.password, source="register")
         email_exists = await crud_users.exists(db=db, email=user.email)
         if email_exists:
-            raise UserExistsError("Email already registered")
+            raise UserExistsError("Email already registered", errors={"email": ["The email has already been taken."]})
 
         username_exists = await crud_users.exists(db=db, username=user.username)
         if username_exists:
-            raise UserExistsError("Username already taken")
+            raise UserExistsError("Username already taken", errors={"username": ["The username has already been taken."]})
 
         user_internal = UserCreateInternal(
             name=user.name,
@@ -165,7 +166,15 @@ class UserService:
         )
         created_user = await crud_users.create(db=db, object=user_internal, schema_to_select=UserRead)
         if not created_user:
-            raise PersistenceError("User row was not returned after insert")
+            raise RuntimeError("User row was not returned after insert")
+
+        # Queue the welcome email for the taskiq worker. The user is already saved, so a
+        # queueing failure (e.g. Redis down) is logged instead of failing the signup.
+        try:
+            await send_welcome_email_task.kiq(name=created_user["name"], email=created_user["email"])
+        except Exception:
+            logger.exception("Failed to queue welcome email", extra={"user_id": created_user["id"]})
+
         return created_user
 
     async def get_paginated(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> GetMultiResponseDict:
@@ -344,12 +353,12 @@ class UserService:
         if "email" in update_data and update_data["email"] != existing_user["email"]:
             email_exists = await crud_users.exists(db=db, email=update_data["email"])
             if email_exists:
-                raise UserExistsError("Email already registered")
+                raise UserExistsError("Email already registered", errors={"email": ["The email has already been taken."]})
 
         if "username" in update_data and update_data["username"] != existing_user["username"]:
             username_exists = await crud_users.exists(db=db, username=update_data["username"])
             if username_exists:
-                raise UserExistsError("Username already taken")
+                raise UserExistsError("Username already taken", errors={"username": ["The username has already been taken."]})
 
         updated_user = await crud_users.update(
             db=db, object=user_update, id=user_id, return_columns=list(UserSchema.model_fields.keys())

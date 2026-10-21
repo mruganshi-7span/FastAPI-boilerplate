@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from ...infrastructure.auth.password_policy import password_policy
 from ..common.schemas import PersistentDeletion, TimestampSchema
 from ..media.schemas import MediaRead
+from ..product.schemas import ProductRead
 from .constants import (
     NAME_MAX_LENGTH,
     USERNAME_MAX_LENGTH,
@@ -59,6 +60,11 @@ class UserProfileRead(BaseModel):
         MediaRead | None,
         Field(default=None, description="Uploaded profile picture with a presigned download URL"),
     ]
+    # Only present in the response when ?include=products is sent (see modules/common/includes.py).
+    products: Annotated[
+        list[ProductRead] | None,
+        Field(default=None, description="The user's products. Present only when ?include=products is sent"),
+    ]
 
 
 class UserRead(BaseModel):
@@ -80,6 +86,11 @@ class UserRead(BaseModel):
     is_superuser: bool = False
     email_verified: bool = False
     oauth_provider: str | None = None
+    # Only present in the response when ?include=products is sent (see modules/common/includes.py).
+    products: Annotated[
+        list[ProductRead] | None,
+        Field(default=None, description="The user's products. Present only when ?include=products is sent"),
+    ]
 
 
 class UserCreate(UserBase):

@@ -1,0 +1,6 @@
+"""Constants for the product module."""
+
+NAME_MAX_LENGTH = 100
+DESCRIPTION_MAX_LENGTH = 2000
+PRICE_MAX_DIGITS = 12
+PRICE_DECIMAL_PLACES = 2

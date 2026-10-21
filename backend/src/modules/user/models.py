@@ -9,6 +9,7 @@ from ...infrastructure.database.session import Base
 from .constants import NAME_MAX_LENGTH, USERNAME_MAX_LENGTH
 
 if TYPE_CHECKING:
+    from ..product.models import Product
     from ..role.models import UserRole
 
 
@@ -16,6 +17,9 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     """User model representing application users."""
 
     __tablename__ = "user"
+
+    # Relationships a client may request with ?include=<name> (see modules/common/includes.py).
+    __includable__ = {"products"}
 
     id: Mapped[int] = mapped_column(
         "id",
@@ -46,6 +50,14 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         back_populates="user",
         lazy="select",
         cascade="all, delete-orphan",
+        passive_deletes=True,
+        default_factory=list,
+        init=False,
+    )
+
+    products: Mapped[list["Product"]] = relationship(
+        "Product",
+        lazy="select",
         passive_deletes=True,
         default_factory=list,
         init=False,
