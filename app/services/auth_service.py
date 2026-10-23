@@ -40,7 +40,9 @@ def register_user(db: Session, payload: UserRegister) -> User:
 
 def authenticate_user(db: Session, payload: UserLogin) -> Token:
     user = db.scalar(select(User).where(User.email == payload.email))
-    if user is None or not verify_password(payload.password, user.password):
+    # A social-only user has no password. Same message as a wrong password, so this response
+    # doesn't reveal that the account exists but signs in through Google.
+    if user is None or user.password is None or not verify_password(payload.password, user.password):
         raise UnauthorizedException("auth.invalid_credentials")
 
     if not user.is_active:

@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
     password_reset_token_expire_minutes: int = 60
+    social_login_code_expire_seconds: int = 60
+
+    # Signs the session cookie Authlib uses to carry OAuth `state`/`nonce` across the redirect.
+    session_secret_key: str
+
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Must match a redirect URI registered on the Google OAuth client exactly.
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
 
     cors_allowed_origins: list[str] = ["*"]
 

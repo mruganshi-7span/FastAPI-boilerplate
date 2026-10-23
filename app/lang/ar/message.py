@@ -16,6 +16,8 @@ MESSAGES: dict[str, str] = {
     "auth.logged_out": "تم تسجيل الخروج بنجاح.",
     "auth.forgot_password_sent": "لقد أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني!",
     "auth.password_reset_done": "تمت إعادة تعيين كلمة المرور الخاصة بك.",
+    "auth.social_email_unverified": "بريدك الإلكتروني غير موثق لدى هذا المزود.",
+    "auth.social_login_failed": "فشل تسجيل الدخول عبر الحساب الاجتماعي أو انتهت صلاحيته. يرجى المحاولة مرة أخرى.",
     "user.not_found": "المستخدم غير موجود.",
     "category.not_found": "الفئة غير موجودة.",
     "media.invalid_key": "هذا المفتاح لا يشير إلى موقع رفع صالح.",

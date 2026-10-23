@@ -11,6 +11,7 @@ from app.models.mediable import MEDIABLE_TYPE_USER, Mediable
 if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.refresh_token import RefreshToken
+    from app.models.social_account import SocialAccount
 
 
 class User(Queryable, SoftDeleteMixin, Base):
@@ -22,7 +23,8 @@ class User(Queryable, SoftDeleteMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    # NULL for users who only ever signed in through a social provider (see social_auth_service).
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -35,6 +37,10 @@ class User(Queryable, SoftDeleteMixin, Base):
     )
 
     categories: Mapped[list["Category"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+    social_accounts: Mapped[list["SocialAccount"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     # Polymorphic "morphToMany ... wherePivot('tag', 'profile')" equivalent: mediable_id/mediable_type
     # have no real FK (the pivot can point at any table), so the join side has to be marked foreign()

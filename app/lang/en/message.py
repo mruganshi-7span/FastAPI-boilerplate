@@ -15,6 +15,8 @@ MESSAGES: dict[str, str] = {
     "auth.logged_out": "Logged out successfully.",
     "auth.forgot_password_sent": "We have emailed your password reset link!",
     "auth.password_reset_done": "Your password has been reset.",
+    "auth.social_email_unverified": "Your email address is not verified with this provider.",
+    "auth.social_login_failed": "Social login failed or has expired. Please try again.",
     "user.not_found": "User not found.",
     "category.not_found": "Category not found.",
     "media.invalid_key": "This key does not point to a valid upload location.",

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes import api_router
 from app.core.config import get_settings
@@ -38,6 +39,15 @@ def create_app() -> FastAPI:
     # it against app/lang/*, setting request.state.locale. translate() (app/core/localization.py)
     # does the actual message lookup, against plain Python dicts in app/lang/{locale}/message.py.
     app.add_middleware(LocaleMiddleware)
+
+    # Only used by Authlib to keep OAuth `state`/`nonce` between /auth/google/login and the
+    # callback. `lax` (not `strict`) so the cookie is still sent on Google's top-level redirect back.
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret_key,
+        same_site="lax",
+        https_only=settings.app_env != "local",
+    )
 
     register_exception_handlers(app)
     app.include_router(api_router, prefix="/api/v1")

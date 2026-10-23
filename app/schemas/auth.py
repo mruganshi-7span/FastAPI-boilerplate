@@ -31,6 +31,10 @@ class Token(BaseModel):
     expires_in: int
 
 
+class SocialCodeExchange(BaseModel):
+    code: str
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
